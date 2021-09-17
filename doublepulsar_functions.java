@@ -49,6 +49,27 @@ import java.io
 https://docs.oracle.com/javase/9/docs/api/java/io/FileInputStream.html
 */
 
+/* implementation 3: 
+https://attacomsian.com/blog/java-read-write-binary-files */
 
+public static void readBinaryFile() 
+{
+	//allow user to select which DLL but for testing we won't allow input at this time
+	try {
+	    // create a reader
+	    FileInputStream fis = new FileInputStream(new File("payload.dll"));
 
+	    // read one byte at a time
+	    int ch;
+	    while ((ch = fis.read()) != -1) {
+		System.out.print((char) ch);
+	    }
+
+	    // close the reader
+	    fis.close();
+
+	} catch (IOException ex) {
+	    ex.printStackTrace();
+	}
+}
 
