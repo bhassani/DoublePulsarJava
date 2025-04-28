@@ -1,6 +1,7 @@
 import java.nio.*;
 import java.util.*;
 
+
 /*
 Doublepulsar payload generation simulator
 */
@@ -112,5 +113,16 @@ public class DoublepulsarUploadShellcode {
         for (byte b : byteArray) {
             System.out.printf("%02X ", b);
         }
+        
+        byte[] XorParameterBytes = byteXor(parameters, byteXorKey);
+        
+        // Print the XORed parameters byte array in hex to verify
+        for (byte b : XorParameterBytes) {
+            System.out.printf("%02X ", XorBytes);
+        }
+        
+        //copy bytebuffer to bytebuffer
+        //https://stackoverflow.com/questions/3366925/deep-copy-duplicate-of-javas-bytebuffer
+        
     }
 }
