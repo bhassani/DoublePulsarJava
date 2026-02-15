@@ -1,7 +1,6 @@
 # DoublePulsarJava
 Doublepulsar interface application written in Java<br /><br />
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-# DoublepulsarUploader <br /><br />
 Repository for DoublePulsar DLL/Shellcode uploader programs<br />
 - Java  shellcode uploader that interfaces with DoublePulsar<br />
 
