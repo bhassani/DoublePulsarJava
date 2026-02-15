@@ -1,7 +1,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 # DoublePulsarJava
 Repository for DoublePulsar DLL/Shellcode uploader programs<br />
-- Java shellcode uploader that interfaces with DoublePulsar<br />
 
 ## Project accomplishments
 - DoublePulsar Upload Shellcode - completed and working, inject your shellcode into any process you desire
