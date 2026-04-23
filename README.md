@@ -10,7 +10,6 @@ Repository for DoublePulsar DLL/Shellcode uploader programs<br />
 - Fix bugs
 - More testing
 - GUI
-- Upload DLL
 - Upload Exe inside a DLL
 
 ## Demo
